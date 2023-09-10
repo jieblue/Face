@@ -1,0 +1,9 @@
+milvus:
+  host: 127.0.0.1
+  port: 19530
+  user: root
+  init: True # only working when init milvus
+  default_password: Milvus # milvus default password
+  password: Milvus
+
+
