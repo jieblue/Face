@@ -6,23 +6,16 @@
   单机安装：https://milvus.io/docs/install_standalone-docker.md
   集群安装：https://milvus.io/docs/install_cluster-milvusoperator.md
 
-+ 项目主要环境
-  - av=10.0.0=py38h1983aaf_3
-  - onnx=1.14.0=py38h641e5f8_1
-  - python=3.8.0=hc9e8b01_5
-  - python_abi=3.8=2_cp38
-  - pyyaml=6.0=py38h91455d4_5
-  - facexlib==0.3.0
-  - numpy==1.24.1
-  - onnxruntime-gpu==1.15.1
-  - onnxsim==0.4.33
-  - opencv-python==4.8.0.74
-  - pymilvus==2.2.9
-  - pytorch-lightning==2.0.5
-  - torch==2.0.1+cu118
-  - torchaudio==2.0.2+cu118
-  - torchmetrics==1.0.0
-  - torchvision==0.15.2+cu118
++ 项目环境配置
+  安装annconda，后创建python版本为3.8的虚拟环境，之后在该虚拟环境内安装以下包
+  - 安装torch2.0 或其他与本机环境适配的pytorch和cuda版本，https://pytorch.org/get-started/locally/
+  - 安装onnx， pip install -i https://pypi.tuna.tsinghua.edu.cn/simple onnx
+  - 安装onnxruntime-gpu, pip install onnxruntime-gpu -i https://pypi.tuna.tsinghua.edu.cn/simple
+  - 安装opencv，pip install opencv-python==4.8.0.74
+  - 安装av， pip install av==10.0.0
+  - 安装pymilvus，版本要符合跟Milvus版本的对于关系，pymilvus==2.2.9
+  - 安装pyyaml，pip install pyyaml==6.0
+  
 
 
 ### 项目结构
