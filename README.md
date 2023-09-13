@@ -13,7 +13,7 @@
   - 安装onnxruntime-gpu, pip install onnxruntime-gpu -i https://pypi.tuna.tsinghua.edu.cn/simple
   - 安装opencv，pip install opencv-python==4.8.0.74
   - 安装av， pip install av==10.0.0
-  - 安装pymilvus，版本要符合跟Milvus版本的对于关系，pymilvus==2.2.9
+  - 安装pymilvus，版本要符合跟Milvus版本的对于关系，pip install pymilvus==2.2.9
   - 安装pyyaml，pip install pyyaml==6.0
   
 
