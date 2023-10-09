@@ -67,6 +67,11 @@ def get_face_embeddings(model: Face_Onnx, paths, aligned=False,
 def add_embeddings2milvus(collection, faces, flush=False):
     data = [[], []]
     result = []
+    for single in faces:
+        id = str(single['id'])
+        if len(id)>50:
+            return []
+
     for i, face in enumerate(faces):
         id = face['id']
         id = str(id)
