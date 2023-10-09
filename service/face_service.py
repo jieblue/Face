@@ -104,8 +104,7 @@ def delete_face_by_object_id(collection, object_ids):
     for id in object_ids:
         if (type(id) != str):
             id = str(id)
-        del_res = delete_by_filed(collection, 'object_id', id)
-        err_count = del_res.err_count
+        err_count = delete_by_filed(collection, 'object_id', id)
         isSuccess = True if err_count == 0 else False
         result.append({
             'id': id,

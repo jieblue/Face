@@ -134,7 +134,7 @@ def delete_by_filed(collection: Collection, field, value):
     delete_res = collection.delete(del_expr)
     # collection.flush()
 
-    return delete_res
+    return delete_res.err_count
 
 
 
