@@ -1,6 +1,6 @@
 from milvus_tool.local_milvus import *
 from config.config import *
-from pymilvus import utility
+
 
 
 conf = get_config()

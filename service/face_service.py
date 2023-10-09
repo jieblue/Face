@@ -1,5 +1,3 @@
-import io
-import os
 from model.model_onnx import Face_Onnx
 from utils.img_util import *
 from milvus_tool.local_milvus import *
@@ -99,13 +97,15 @@ def delete_face_by_primary_key_batch(collection, primary_keys):
     return delete_by_pks_batch(collection, primary_keys)
 
 
+
 #按向量对应的人脸图片/视频id批删除向量
 def delete_face_by_object_id(collection, object_ids):
     result = []
     for id in object_ids:
         if (type(id) != str):
             id = str(id)
-        err_count = delete_by_filed(collection, 'object_id', id)
+        del_res = delete_by_filed(collection, 'object_id', id)
+        err_count = del_res.err_count
         isSuccess = True if err_count == 0 else False
         result.append({
             'id': id,

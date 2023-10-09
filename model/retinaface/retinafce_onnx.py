@@ -1,19 +1,10 @@
-import time
-import uuid
-
-import cv2
-import os
-import numpy as np
-import onnx
 from model.retinaface.data import cfg_mnet
 from model.retinaface.layers.functions.prior_box import PriorBox
 from model.retinaface.reutils.box_utils import decode, decode_landm
-from model.retinaface.reutils.face_util import face_quality_assessment
 from model.retinaface.reutils.nms.py_cpu_nms import py_cpu_nms
 from utils.face_helper import *
 import torch.onnx
 import onnxruntime as ort
-
 from utils.img_util import down_image
 
 

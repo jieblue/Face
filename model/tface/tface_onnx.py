@@ -1,13 +1,10 @@
 import numpy
-import torch.onnx
 import onnxruntime as ort
-import time
-import uuid
 
 import cv2
-import os
+
 import numpy as np
-import onnx
+
 
 # from utils.face_helper import pre_process, post_process
 

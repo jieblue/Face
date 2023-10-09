@@ -1,6 +1,3 @@
-import asyncio
-import time
-from milvus_tool import *
 from pymilvus import (
     connections,
     utility,
@@ -8,7 +5,7 @@ from pymilvus import (
     CollectionSchema,
     DataType,
     Collection,
-    Index,
+
 )
 
 
@@ -106,13 +103,14 @@ def delete_by_pks(collection: Collection, pks):
 def delete_by_pks_batch(collection: Collection, pks):
     del_expr = 'id in ['
     _len = len(pks)
+    if _len > 500:
+        return _len
     for i, pk in enumerate(pks):
         _id = pk
         _expr = str(_id) + ']' if i == (_len - 1) else str(_id) + ','
         del_expr = del_expr + _expr
 
     delete_res = collection.delete(del_expr)
-    # collection.flush()
 
     return delete_res.err_count
 
@@ -136,7 +134,7 @@ def delete_by_filed(collection: Collection, field, value):
     delete_res = collection.delete(del_expr)
     # collection.flush()
 
-    return delete_res.err_count
+    return delete_res
 
 
 

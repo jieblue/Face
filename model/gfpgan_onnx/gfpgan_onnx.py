@@ -1,11 +1,7 @@
-import torch.onnx
 import onnxruntime as ort
-import time
-import uuid
 import cv2
-import os
 import numpy as np
-import onnx
+
 
 
 class GFPGAN_Onnx:

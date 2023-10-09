@@ -1,6 +1,3 @@
-import time
-import cv2
-import numpy as np
 from model.tface.tface_onnx import TFace_Onnx
 from utils.img_util import read_img
 from model.adaface.adaface_onnx import Adaface_Onnx
