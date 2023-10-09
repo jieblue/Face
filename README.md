@@ -2,10 +2,10 @@
 
 ### 环境安装
 + Milvus安装
-  安装Milvus版本2.2.9
-  单机安装：https://milvus.io/docs/install_standalone-docker.md
-  集群安装：https://milvus.io/docs/install_cluster-milvusoperator.md
-
+  - 安装Milvus版本2.2.9
+  - 单机安装：https://milvus.io/docs/install_standalone-docker.md
+  - 集群安装：https://milvus.io/docs/install_cluster-milvusoperator.md
+  - Milvus可视化管理工具 Attu: https://github.com/zilliztech/attu
 + 项目环境配置
   安装annconda，后创建python版本为3.8的虚拟环境，之后在该虚拟环境内安装以下包
   - 安装torch2.0 或其他与本机环境适配的pytorch和cuda版本，https://pytorch.org/get-started/locally/
