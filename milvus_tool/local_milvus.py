@@ -103,8 +103,6 @@ def delete_by_pks(collection: Collection, pks):
 def delete_by_pks_batch(collection: Collection, pks):
     del_expr = 'id in ['
     _len = len(pks)
-    if _len > 500:
-        return _len
     for i, pk in enumerate(pks):
         _id = pk
         _expr = str(_id) + ']' if i == (_len - 1) else str(_id) + ','

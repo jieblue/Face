@@ -5,12 +5,26 @@ from model.model_onnx import *
 from service import face_service
 from utils.img_util import *
 from config.config import *
+from milvus_tool import local_milvus
+
 
 # 获取config信息
 conf = get_config()
 
 # 加载模型 加载模型会耗时比较长
 face_model = Face_Onnx(conf['model'])
+
+# 获取Milvus的配置
+milvus_conf = conf['milvus']
+
+#创建和Milvus的连接
+con = local_milvus.create_connection(host=milvus_conf['host'], port=milvus_conf['port'],
+                        user=milvus_conf['user'], password=milvus_conf['password'])
+
+
+# 获取Milvus中的collection，并且加载到内存中
+image_collection = local_milvus.get_collection("image_faces", load=True)
+video_collection = local_milvus.get_collection("video_faces", load=True)
 
 
 img1_path ='./test_img/0.jpg'
@@ -33,6 +47,7 @@ for i, single in enumerate(extracted_faces):
         path = os.path.join(res_path, name)
         res_paths.append(path)
         cv2.imwrite(path, face)
+
 # 增强提取处来的人脸
 start = time.time()
 enhanceed_faces = face_service.enhance_face_batch(face_model, res_paths, aligned=True)
@@ -41,6 +56,7 @@ print('增强人脸耗时:' + str(time.time()-start))
 for i , face in enumerate(enhanceed_faces):
     name = res_paths[i].split('.jpg') [0] + 'enhanceed.jpg'
     cv2.imwrite(name, face)
+
 
 res_paths.clear()
 res_list = os.listdir('./res_img')
@@ -68,9 +84,29 @@ get_face_embeddings(aligned=False) =
 get_align_faces_batch() + get_face_embeddings(aligned=True)
 
 '''
-
-
 start = time.time()
 embeddings = face_service.get_face_embeddings(face_model, img_paths, aligned=False)
 print('获取图片中的人脸向量耗时:' + str(time.time()-start))
-print(len(embeddings[0][0]))
+print(len(embeddings[0]))
+print(len(embeddings[2]))
+
+'''
+把特征人脸特征向量插入Milvus， 图片人脸就插入image_collection,
+视频人脸就插入video_collection
+id 是标识每个人脸的id， 可以是视频id， 图片id， 人员id
+embedding 是一个人脸特征向量
+'''
+faces = []
+for i, single in enumerate(embeddings):
+    for embedding in single:
+        faces.append({
+            'id': str(i),
+            'embedding': embedding
+        })
+
+res = face_service.add_embeddings2milvus(image_collection, faces)
+print(res)
+
+# 把collection 从内存中释放， Milvus的查询需要把collection加载到内存中，程序结束时才要释放
+image_collection.release()
+video_collection.release()

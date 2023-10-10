@@ -1,3 +1,5 @@
+import numpy
+
 from model.model_onnx import Face_Onnx
 from utils.img_util import *
 from milvus_tool.local_milvus import *
@@ -156,6 +158,9 @@ def search_face_image(model: Face_Onnx, collection, imgs,
     embeddings = []
     for img in imgs:
         embedding = model.turn2embeddings(img, enhance=enhance)
+        if len(embedding)==0:
+            embeddings.append(numpy.zeros([512], dtype=numpy.float32))
+            continue
         embeddings.append(embedding[0])
 
     search_res = search_vectors(collection, 'embedding', embeddings,
