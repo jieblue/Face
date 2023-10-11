@@ -96,16 +96,16 @@ print(len(embeddings[2]))
 id 是标识每个人脸的id， 可以是视频id， 图片id， 人员id
 embedding 是一个人脸特征向量
 '''
-faces = []
-for i, single in enumerate(embeddings):
-    for embedding in single:
-        faces.append({
-            'id': str(i),
-            'embedding': embedding
-        })
-
-res = face_service.add_embeddings2milvus(image_collection, faces)
-print(res)
+# faces = []
+# for i, single in enumerate(embeddings):
+#     for embedding in single:
+#         faces.append({
+#             'id': str(i),
+#             'embedding': embedding
+#         })
+#
+# res = face_service.add_embeddings2milvus(image_collection, faces)
+# print(res)
 
 # 把collection 从内存中释放， Milvus的查询需要把collection加载到内存中，程序结束时才要释放
 image_collection.release()
