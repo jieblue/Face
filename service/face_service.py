@@ -1,3 +1,5 @@
+import numpy
+
 from model.model_onnx import Face_Onnx
 from utils.img_util import *
 from milvus_tool.local_milvus import *
@@ -12,6 +14,35 @@ def extract_key_frames_batch(paths):
     for path in paths:
         key_frames = extract_video(path)
         result.append(key_frames)
+    return result
+
+
+#批量获取视频关键帧的人脸图片
+def get_videos_faces(model: Face_Onnx, video_paths, enhance=False,
+                     confidence =0.99):
+    result = []
+    for keyframes_path in video_paths:
+        path_list = []
+        for file_name in os.listdir(keyframes_path):
+            path_list.append(os.path.join(keyframes_path, file_name))
+        # print(path_list)
+        faces = get_align_faces_batch(model, path_list ,enhance=enhance,
+                                      confidence=confidence, merge=True)
+        result.append(faces)
+    return result
+
+# 批量获取关键帧中提取出的人脸的向量
+def get_video_extracted_face_embedding(model: Face_Onnx, faces_paths, threshold=0.5):
+    result = []
+    for faces_path in faces_paths:
+        path_list = []
+        for file_name in os.listdir(faces_path):
+            path_list.append(os.path.join(faces_path, file_name))
+        raw_embeddings = get_face_embeddings(model, path_list, aligned=True, merge=True)
+
+        embeddings = squeeze_faces(raw_embeddings, threshold)
+        result.append(embeddings)
+
     return result
 
 
@@ -36,13 +67,16 @@ def get_videos_face_embedding(model: Face_Onnx, video_paths, enhance=False,
 
 #批量获取对齐的人脸
 def get_align_faces_batch(model: Face_Onnx, paths,
-                          enhance=False, confidence=0.99):
+                          enhance=False, confidence=0.99, merge=False):
     align_faces = []
     for path in paths:
         img = cv_imread(path)
-        _align_face = model.extract_face(img, enhance=enhance, confidence=confidence)
-
-        align_faces.append(_align_face)
+        _align_face = model.extract_face(img, enhance=enhance,
+                                         confidence=confidence)
+        if merge:
+            align_faces += _align_face
+        else:
+            align_faces.append(_align_face)
     return align_faces
 
 
@@ -124,6 +158,9 @@ def search_face_image(model: Face_Onnx, collection, imgs,
     embeddings = []
     for img in imgs:
         embedding = model.turn2embeddings(img, enhance=enhance)
+        if len(embedding)==0:
+            embeddings.append(numpy.zeros([512], dtype=numpy.float32))
+            continue
         embeddings.append(embedding[0])
 
     search_res = search_vectors(collection, 'embedding', embeddings,
