@@ -18,8 +18,10 @@ face_model = Face_Onnx(conf['model'])
 milvus_conf = conf['milvus']
 
 #创建和Milvus的连接
+# db_name 表示连接的数据库名称，之前使用的是default, 考虑到拓展性，
+# 使用initialize.py 重新初始化创建了Face_Search数据库
 con = local_milvus.create_connection(host=milvus_conf['host'], port=milvus_conf['port'],
-                        user=milvus_conf['user'], password=milvus_conf['password'])
+                        user=milvus_conf['user'], password=milvus_conf['password'], db_name='Face_Search')
 
 
 # 获取Milvus中的collection，并且加载到内存中

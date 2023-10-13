@@ -8,9 +8,12 @@ import onnxruntime as ort
 from utils.img_util import down_image
 
 
+# retinaface 的ONNX模型，用于人脸检测
 class Retinaface_Onnx:
     def __init__(self, path, cuda=True):
         if cuda:
+            # 设置CUDAExecutionProvider, 因为模型输入大小不固定
+            # 要设置加速算法为默认
             providers = [
                 ('CUDAExecutionProvider', {
                     # 'device_id': 0,
@@ -28,10 +31,11 @@ class Retinaface_Onnx:
 
         so = ort.SessionOptions()
         so.log_severity_level = 3
+        # 加载onnx模型到onnxruntime的推理
         self.session = ort.InferenceSession(path, so, providers=providers)
         self.input_name = self.session.get_inputs()[0].name
 
-
+    #人脸检测方法
     def detect_faces(self, img_raw, confidence_threshold=0.99,
                      top_k=5000, nms_threshold=0.4, keep_top_k=750, resize=1):
 
@@ -109,6 +113,8 @@ class Retinaface_Onnx:
 
         return dets, landms
 
+    # 人脸提取方法， 根据人脸检测得到的landmarks仿射变换人脸部分到face_size大小
+    # 返回校准后的人脸列表
     def extract_face(self, img, face_size = 112, confidence=0.99):
         # input is numpy img bgr
         # return is numpy img bgr
@@ -150,6 +156,7 @@ class Retinaface_Onnx:
 def to_numpy(tensor):
     return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
 
+# np2tensor
 def to_tensor(np_array):
     return torch.from_numpy(np_array) #.contiguous()
 
