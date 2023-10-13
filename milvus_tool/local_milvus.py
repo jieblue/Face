@@ -17,6 +17,9 @@ def create_connection(host="127.0.0.1", port="19530",
     return connections.connect('default', host=host, port=port,
                                user=user, password=password, db_name=db_name)
 
+def create_connection_without_auth(host="127.0.0.1", port="19530"):
+    return connections.connect('default', host=host, port=port)
+
 
 # 创建 数据库 database_name是数据库名称
 def create_database(database_name):
