@@ -21,7 +21,7 @@ db.using_database(db_name)
 # collection的字段参数
 fields = [
             FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-            FieldSchema(name="object_id", dtype=DataType.VARCHAR, max_length=50),
+            FieldSchema(name="object_id", dtype=DataType.VARCHAR, max_length=64),
             FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=512)
         ]
 
