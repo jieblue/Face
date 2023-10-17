@@ -28,6 +28,8 @@ def get_videos_faces(model: Face_Onnx, video_paths, enhance=False,
         # print(path_list)
         faces = get_align_faces_batch(model, path_list ,enhance=enhance,
                                       confidence=confidence, merge=True)
+        print('raw: ' + str(len(faces)))
+        
         result.append(faces)
     return result
 
@@ -39,8 +41,10 @@ def get_video_extracted_face_embedding(model: Face_Onnx, faces_paths, threshold=
         for file_name in os.listdir(faces_path):
             path_list.append(os.path.join(faces_path, file_name))
         raw_embeddings = get_face_embeddings(model, path_list, aligned=True, merge=True)
+        print('get_video_extracted_face_embedding raw: ' + str(len(raw_embeddings)))
 
         embeddings = squeeze_faces(raw_embeddings, threshold)
+        print('get_video_extracted_face_embedding fine: ' + str(len(embeddings)))
         result.append(embeddings)
 
     return result
@@ -57,9 +61,9 @@ def get_videos_face_embedding(model: Face_Onnx, video_paths, enhance=False,
         # print(path_list)
         raw_embeddings = get_face_embeddings(model, path_list, False,
                                       enhance, confidence, True)
-        # print('raw: ' + str(len(raw_embeddings)))
+        print('raw: ' + str(len(raw_embeddings)))
         embeddings = squeeze_faces(raw_embeddings, threshold)
-        # print('fine: ' + str(len(embeddings)))
+        print('fine: ' + str(len(embeddings)))
         result.append(embeddings)
     return result
 
@@ -67,9 +71,10 @@ def get_videos_face_embedding(model: Face_Onnx, video_paths, enhance=False,
 
 #批量获取对齐的人脸
 def get_align_faces_batch(model: Face_Onnx, paths,
-                          enhance=False, confidence=0.99, merge=False):
+                          enhance=False, confidence=0.9999, merge=False):
     align_faces = []
     for path in paths:
+        print("get_align_faces_batch path: " + path)
         img = cv_imread(path)
         _align_face = model.extract_face(img, enhance=enhance,
                                          confidence=confidence)
@@ -77,12 +82,13 @@ def get_align_faces_batch(model: Face_Onnx, paths,
             align_faces += _align_face
         else:
             align_faces.append(_align_face)
+        print("align_faces" + str(len(align_faces)))
     return align_faces
 
 
 #批量获取图片中的人脸向量
 def get_face_embeddings(model: Face_Onnx, paths, aligned=False,
-                        enhance=False, confidence=0.99, merge=False):
+                        enhance=False, confidence=0.9999, merge=False):
     embeddings = []
     for path in paths:
         img = cv_imread(path)

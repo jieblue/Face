@@ -52,7 +52,7 @@ def has_collection(collection_name):
 
 # 判断是否存在某个 collection
 def has_database(database_name):
-    database_arr = db.list_databases("")
+    database_arr = db.list_database("")
     if database_name in database_arr:
         return True
     return False
