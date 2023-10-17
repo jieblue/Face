@@ -17,9 +17,13 @@ def create_connection(host="127.0.0.1", port="19530",
     return connections.connect('default', host=host, port=port,
                                user=user, password=password, db_name=db_name)
 
+def create_connection_without_auth(host="127.0.0.1", port="19530"):
+    return connections.connect('default', host=host, port=port)
+
 
 # 创建 数据库 database_name是数据库名称
 def create_database(database_name):
+
     db.create_database(database_name)
 
 # 创建 collection collection_name 为collection的名字， description为描述，
@@ -28,6 +32,7 @@ def create_database(database_name):
 def create_collection(collection_name, description='',
                       fields=None):
     if has_collection(collection_name):
+        # 创建成功后， 跳过
         raise Exception('Collection has already existed!')
 
     if fields is None:
@@ -44,6 +49,13 @@ def create_collection(collection_name, description='',
 # 判断是否存在某个 collection
 def has_collection(collection_name):
     return utility.has_collection(collection_name)
+
+# 判断是否存在某个 collection
+def has_database(database_name):
+    database_arr = db.list_database("")
+    if database_name in database_arr:
+        return True
+    return False
 
 
 # 获得某个 collection 对象，
