@@ -18,6 +18,7 @@ def extract_key_frames_batch(paths):
 
 
 #批量获取视频关键帧的人脸图片
+#video_spaths为list，list中的每个path是一个视频的关键帧的(文件夹)目录 dir
 def get_videos_faces(model: Face_Onnx, video_paths, enhance=False,
                      confidence =0.99):
     result = []
@@ -34,6 +35,7 @@ def get_videos_faces(model: Face_Onnx, video_paths, enhance=False,
     return result
 
 # 批量获取关键帧中提取出的人脸的向量
+#faces_spaths为list，list中的每个path是一个视频的人脸(文件夹)目录 dir
 def get_video_extracted_face_embedding(model: Face_Onnx, faces_paths, threshold=0.5):
     result = []
     for faces_path in faces_paths:
@@ -49,6 +51,7 @@ def get_video_extracted_face_embedding(model: Face_Onnx, faces_paths, threshold=
 
 
 #批量获取视频关键帧的人脸向量，包含同个视频不同关键帧的人脸去重
+#video_spaths为list，list中的每个path是一个视频的关键帧的(文件夹)目录 dir
 def get_videos_face_embedding(model: Face_Onnx, video_paths, enhance=False,
                               confidence =0.99, threshold=0.5):
     result = []
@@ -68,6 +71,7 @@ def get_videos_face_embedding(model: Face_Onnx, video_paths, enhance=False,
 
 
 #批量获取对齐的人脸
+#paths为list，list中的每个path是一张图片的路径
 def get_align_faces_batch(model: Face_Onnx, paths,
                           enhance=False, confidence=0.99, merge=False):
     align_faces = []
@@ -84,6 +88,7 @@ def get_align_faces_batch(model: Face_Onnx, paths,
 
 
 #批量获取图片中的人脸向量
+#paths为list，list中的每个path是一张图片的路径
 def get_face_embeddings(model: Face_Onnx, paths, aligned=False,
                         enhance=False, confidence=0.99, merge=False):
     embeddings = []
