@@ -10,24 +10,23 @@ from utils.img_util import down_image
 
 # retinaface 的ONNX模型，用于人脸检测
 class Retinaface_Onnx:
-    def __init__(self, path, cuda=True):
-        if cuda:
+    def __init__(self, path, gpu_id=0):
+
             # 设置CUDAExecutionProvider, 因为模型输入大小不固定
             # 要设置加速算法为默认
-            providers = [
-                ('CUDAExecutionProvider', {
-                    # 'device_id': 0,
-                    'arena_extend_strategy': 'kNextPowerOfTwo',
-                    # 'gpu_mem_limit': 2 * 1024 * 1024 * 1024,
-                    'cudnn_conv_algo_search': 'DEFAULT',
-                    'do_copy_in_default_stream': True,
-                }),
-                'CPUExecutionProvider',
-            ]
-            self.device = 'cuda'
-        else:
-            providers = ['CPUExecutionProvider']
-            self.device = 'cpu'
+        providers = [
+            ('CUDAExecutionProvider', {
+                'device_id': gpu_id,
+                'arena_extend_strategy': 'kNextPowerOfTwo',
+                # 'gpu_mem_limit': 2 * 1024 * 1024 * 1024,
+                'cudnn_conv_algo_search': 'DEFAULT',
+                'do_copy_in_default_stream': True,
+            }),
+            'CPUExecutionProvider',
+        ]
+        device_name = 'cuda:' + str(gpu_id)
+        self.device = torch.device(device_name)
+
 
         so = ort.SessionOptions()
         so.log_severity_level = 3
@@ -50,7 +49,7 @@ class Retinaface_Onnx:
         img = np.expand_dims(img, axis=0)
         # img = torch.from_numpy(img).unsqueeze(0)
         # img = img.to(self.device)
-        scale = scale.cuda()
+        scale = scale.to(self.device)
 
         # tic = time.time()
 
@@ -61,9 +60,9 @@ class Retinaface_Onnx:
         # end = time.time()
         # print('infer time: '+str(end - start))
 
-        loc = to_tensor(loc).cuda()
-        conf = to_tensor(conf).cuda()
-        landms = to_tensor(landms).cuda()
+        loc = to_tensor(loc).to(self.device)
+        conf = to_tensor(conf).to(self.device)
+        landms = to_tensor(landms).to(self.device)
 
         priorbox = PriorBox(cfg_mnet, image_size=(im_height, im_width))
         priors = priorbox.forward()

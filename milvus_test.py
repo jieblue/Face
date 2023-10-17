@@ -12,7 +12,7 @@ from milvus_tool import local_milvus
 conf = get_config()
 
 # 加载模型 加载模型会耗时比较长
-face_model = Face_Onnx(conf['model'])
+face_model = Face_Onnx(conf['model'], gpu_id=0)
 
 # 获取Milvus的配置
 milvus_conf = conf['milvus']

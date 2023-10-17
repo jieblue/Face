@@ -10,7 +10,7 @@ from config.config import *
 conf = get_config()
 
 # 加载模型 加载模型会耗时比较长
-face_model = Face_Onnx(conf['model'])
+face_model = Face_Onnx(conf['model'], gpu_id=0)
 
 # 测试视频路径
 video1_path = 'C:/Users/jieblue/Documents/stuff/nls1/横向/海博视频检索资料/科研团队资料/样例视频/0.mp4'

@@ -7,12 +7,12 @@ from model.retinaface.retinafce_onnx import Retinaface_Onnx
 
 # Face_Onnx 是.model包下四个模型的整合
 class Face_Onnx:
-    def __init__(self, config, cuda=True):
-        # 模型初始化
-        self.retinaface = Retinaface_Onnx(config['retinaface'], cuda=cuda)
-        self.adaface = Adaface_Onnx(config['adaface'], cuda=cuda)
-        self.gfpgan = GFPGAN_Onnx(config['gfpgan'], cuda=cuda)
-        self.tface = TFace_Onnx(config['tface'], cuda=cuda)
+    def __init__(self, config, gpu_id=0):
+        # 模型初始化 config为配置文件， gpu_id是指定gpu
+        self.retinaface = Retinaface_Onnx(config['retinaface'], gpu_id=gpu_id)
+        self.adaface = Adaface_Onnx(config['adaface'], gpu_id=gpu_id)
+        self.gfpgan = GFPGAN_Onnx(config['gfpgan'], gpu_id=gpu_id)
+        self.tface = TFace_Onnx(config['tface'], gpu_id=gpu_id)
         # 预热模型
         self.warw_up(config['img'])
 

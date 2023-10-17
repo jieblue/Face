@@ -80,7 +80,6 @@ def get_align_faces_batch(model: Face_Onnx, paths,
             align_faces += _align_face
         else:
             align_faces.append(_align_face)
-    # print(len(align_faces))
     return align_faces
 
 

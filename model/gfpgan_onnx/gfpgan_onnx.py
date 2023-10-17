@@ -6,14 +6,18 @@ import numpy as np
 # gfpgan 的 ONNX模型使用
 # 人脸增强
 class GFPGAN_Onnx:
-    def __init__(self, path, cuda=True):
+    def __init__(self, path, gpu_id=0):
         #使用GPU
-        if cuda:
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-            self.device = 'cuda'
-        else:
-            providers = ['CPUExecutionProvider']
-            self.device = 'cpu'
+        providers = [
+            ('CUDAExecutionProvider', {
+                'device_id': gpu_id,
+                'arena_extend_strategy': 'kNextPowerOfTwo',
+                # 'gpu_mem_limit': 2 * 1024 * 1024 * 1024,
+                # 'cudnn_conv_algo_search': 'DEFAULT',
+                'do_copy_in_default_stream': True,
+            }),
+            'CPUExecutionProvider',
+        ]
 
         so = ort.SessionOptions()
         so.log_severity_level = 3
