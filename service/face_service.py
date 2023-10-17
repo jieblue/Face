@@ -26,9 +26,11 @@ def get_videos_faces(model: Face_Onnx, video_paths, enhance=False,
         for file_name in os.listdir(keyframes_path):
             path_list.append(os.path.join(keyframes_path, file_name))
         # print(path_list)
-        faces = get_align_faces_batch(model, path_list ,enhance=enhance,
+        _faces = get_align_faces_batch(model, path_list ,enhance=enhance,
                                       confidence=confidence, merge=True)
-        result.append(faces)
+        # print(len(_faces))
+        result.append(_faces)
+        # print(len(result[0]))
     return result
 
 # 批量获取关键帧中提取出的人脸的向量
@@ -73,10 +75,12 @@ def get_align_faces_batch(model: Face_Onnx, paths,
         img = cv_imread(path)
         _align_face = model.extract_face(img, enhance=enhance,
                                          confidence=confidence)
+
         if merge:
             align_faces += _align_face
         else:
             align_faces.append(_align_face)
+    # print(len(align_faces))
     return align_faces
 
 
