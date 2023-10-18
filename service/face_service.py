@@ -310,10 +310,103 @@ def enhance_face_batch(model: Face_Onnx, paths,
     return enhance_faces, err
 
 
+#批量获取对齐的人脸
+#imgs为list，list中的每个img是一张opencv格式的图片
+#返回result 和 err, err记录错误信息
+def get_align_faces_batch_img(model: Face_Onnx, imgs,
+                              enhance=False, confidence=0.99, merge=False):
+    align_faces = []
+    err = []
+    for img in imgs:
+        _align_face = model.extract_face(img, enhance=enhance,
+                                         confidence=confidence)
+        if merge:
+            align_faces += _align_face
+        else:
+            align_faces.append(_align_face)
+    return align_faces, err
+
+
+#批量获取图片中的人脸向量
+#imgs为list，list中的每个img是一张opencv格式的图片
+#返回result 和 err, err记录错误信息，暂时为空list
+def get_face_embeddings_img(model: Face_Onnx, imgs, aligned=False,
+                            enhance=False, confidence=0.99, merge=False):
+    embeddings = []
+    err = []
+    for img in imgs:
+
+        embedding = model.turn2embeddings(img, enhance=enhance, aligned=aligned,
+                                          confidence=confidence)
+        if merge:
+            for single in embedding:
+                embeddings.append(single)
+        else:
+            embeddings.append(embedding)
+
+    return embeddings, err
+
+
+# 批获取增强后的对齐人脸图片
+#imgs为list，list中的每个img是经过人脸检测得到的人脸图片
+#返回result 和 err, err记录错误信息，暂时为空list
+def enhance_face_batch_img(model: Face_Onnx, imgs):
+    enhance_faces = []
+    err = []
+
+    for img in imgs:
+        img = cv2.resize(img, (512, 512))
+        face = model.gfpgan.forward(img, True)
+        enhance_faces.append(face)
+    return enhance_faces, err
 
 
 
+#批获取人脸图片的质量分数
+#imgs为list，list中的每个img是经过人脸检测得到的人脸图片
+#返回result 和 err, err记录错误信息，暂时为空list
+def get_face_quality_batch_img(model: Face_Onnx, imgs):
+    err = []
+    result = []
+    for img in imgs:
+        score = model.tface.forward(img)
+        result.append(score)
+    return result, err
 
 
 
+#批量获取视频关键帧的人脸图片
+#imgs_list 是list的list，[ [...], [...], ...]，每个子list包含来自同个视频的关键帧图片
+#图片是opencv格式的表示
+#返回result 和 err, err记录错误信息，暂时为空list
+def get_keyframes_faces_img(model: Face_Onnx, imgs_list, enhance=False,
+                            confidence =0.9):
+    result = []
+    err = []
+    for imgs in imgs_list:
+        # print(path_list)
+        _faces, _err = get_align_faces_batch_img(model, imgs ,enhance=enhance,
+                                                 confidence=confidence, merge=True)
+        # print(len(_faces))
+        err += _err
+        # print(len(_faces))
+        result.append(_faces)
+        # print(len(result[0]))
+    return result, err
 
+
+# 批量获取关键帧中提取出的人脸的向量
+#imgs_list 是list的list，[ [...], [...], ...]，每个子list包含来自同个视频的关键帧中提取的人脸图片
+#图片是opencv格式的表示
+#返回result 和 err, err记录错误信息，暂时为空list
+def get_keyframes_faces_imgembedding_img(model: Face_Onnx, imgs_list, threshold=0.5):
+    result = []
+    err = []
+    for imgs in imgs_list:
+        raw_embeddings, _err = get_face_embeddings_img(model, imgs, aligned=True, merge=True)
+        err += _err
+
+        embeddings = squeeze_faces(raw_embeddings, threshold)
+        result.append(embeddings)
+
+    return result, err
