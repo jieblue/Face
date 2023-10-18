@@ -37,12 +37,33 @@
 
 
 ### 相关文档
-+ 向量数据库Milvus: https://milvus.io/docs
-+ onnx的模型推理 onnxruntime: https://github.com/microsoft/onnxruntime
-+ 人脸识别 AdaFace: https://github.com/mk-minchul/AdaFace
-+ 人脸检测 ReitnaFace/MobileFace: https://github.com/foamliu/MobileFaceNet
-+ 人脸增强 GFPGAN: https://github.com/TencentARC/GFPGAN
-+ 人脸质量评估 TFace: https://github.com/Tencent/TFace
+
+#### 模型部署概览：
+  ![img.png](img.png)
+
+#### 向量数据库Milvus:
+  + 连接Milvus：https://milvus.io/docs/manage_connection.md
+  + 数据库管理：https://milvus.io/docs/manage_databases.md
+  + 表管理：https://milvus.io/docs/create_collection.md
+  + 数据管理：https://milvus.io/docs/insert_data.md
+  + 创建索引：https://milvus.io/docs/build_index.md
+  + 向量搜索：https://milvus.io/docs/search.md
+
+#### onnx
+  + pytorch模型导出为onnx：https://learn.microsoft.com/zh-cn/windows/ai/windows-ml/tutorials/pytorch-analysis-convert-model
+  + 博客：https://blog.csdn.net/weixin_42111770/article/details/127714640
+#### onnxruntime：
+  + python api: https://onnxruntime.ai/docs/api/python/api_summary.html
+  + 知乎帖子：https://zhuanlan.zhihu.com/p/371177698
+
+#### 模型pytorch源码：
+  + 人脸识别 AdaFace: https://github.com/mk-minchul/AdaFace
+  + 人脸检测 ReitnaFace/MobileFace: https://github.com/foamliu/MobileFaceNet
+  + 人脸增强 GFPGAN: https://github.com/TencentARC/GFPGAN
+  + 人脸质量评估 TFace: https://github.com/Tencent/TFace
+
+#### 提取视频关键帧
+  + 博客：https://blog.csdn.net/lidc1004/article/details/117528327
 
 
 
