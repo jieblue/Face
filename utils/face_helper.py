@@ -63,8 +63,8 @@ def squeeze_faces(faces_list, threshold=0.48):
             unique_vectors.append(vector)
             # ids.append(i)
 
-    numpy_list = [t.unsqueeze(0).numpy().tolist()[0] for t in unique_vectors]
-    # 从有范数的向量列表中提取没有范数的向量列表
+    numpy_list = [t.unsqueeze(0).numpy().astype(np.float32).tolist()[0] for t in unique_vectors]
+    # 从有范数的向量列表中提取没有范数的向量列表.astype(np.float32)
     return numpy_list
 
 
