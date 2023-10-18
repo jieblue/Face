@@ -35,7 +35,15 @@
 + 在fastapi类结束时释放Milvus:
   ![image](https://github.com/jieblue/Face/assets/53696774/75d2ccb3-0c46-43d2-bf8e-2bd617dd1fc3)
 
-  
+
+### 相关文档
++ 向量数据库Milvus: https://milvus.io/docs
++ onnx的模型推理 onnxruntime: https://github.com/microsoft/onnxruntime
++ 人脸识别 AdaFace: https://github.com/mk-minchul/AdaFace
++ 人脸检测 ReitnaFace/MobileFace: https://github.com/foamliu/MobileFaceNet
++ 人脸增强 GFPGAN: https://github.com/TencentARC/GFPGAN
++ 人脸质量评估 TFace: https://github.com/Tencent/TFace
+
 
 
 
