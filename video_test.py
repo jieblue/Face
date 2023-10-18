@@ -24,9 +24,9 @@ video_paths = [video1_path, video2_path]
 # 17s 视频耗时 0.2217ms
 # 32分09秒 视频耗时 22s
 start = time.time()
-keyframes = face_service.extract_key_frames_batch(video_paths)
+keyframes, err = face_service.extract_key_frames_batch(video_paths)
 print("提取视频关键帧耗时: " + str(time.time() - start))
-
+print(err)
 # 把提取出的视频关键帧写入本地
 for i, single in enumerate(keyframes):
     for j, keyframe in enumerate(single):
@@ -46,7 +46,8 @@ for single in list_path:
     keyframes_dirs.append(dir)
 
 # 提取关键帧中的人脸
-faces = face_service.get_videos_faces(face_model, keyframes_dirs)
+faces, err = face_service.get_videos_faces(face_model, keyframes_dirs)
+print(err)
 
 for i, single in enumerate(faces):
     for j, face in enumerate(single):
@@ -61,18 +62,19 @@ faces_path2 = './keyframes_faces/1'
 faces_paths = [faces_path1, faces_path2]
 
 # 获取关键帧提取出的人脸的特征向量 输入是目录数组，每个目录存取自己视频提取出的人脸
-embeddings = face_service.get_video_extracted_face_embedding(face_model, faces_paths, 0.5)
+embeddings, err = face_service.get_video_extracted_face_embedding(face_model, faces_paths, 0.5)
 print("第1个视频的特征向量个数："+ str(len(embeddings[0])))
 print("第2个视频的特征向量个数："+ str(len(embeddings[1])))
-
+print(err)
 
 # 直接获取关键帧中的人脸特征向量 输入是目录数组，每个目录存取自己视频的关键帧
 '''
 get_videos_face_embedding() = 
 get_videos_faces() + get_video_extracted_face_embedding()
 '''
-embeddings = face_service.get_videos_face_embedding(face_model, keyframes_dirs, threshold=0.5)
+embeddings, err = face_service.get_videos_face_embedding(face_model, keyframes_dirs, threshold=0.5)
 print("第1个视频的特征向量个数："+ str(len(embeddings[0])))
 print("第2个视频的特征向量个数："+ str(len(embeddings[1])))
+print(err)
 
 

@@ -9,74 +9,93 @@ from utils.face_helper import *
 
 
 #批量提取视频关键帧
+#返回result 和 err, err记录读取出错的视频路径
 def extract_key_frames_batch(paths):
     result = []
+    err = []
     for path in paths:
         key_frames = extract_video(path)
+        if key_frames is None:
+            err.append(path)
         result.append(key_frames)
-    return result
+    return result, err
 
 
 #批量获取视频关键帧的人脸图片
 #video_spaths为list，list中的每个path是一个视频的关键帧的(文件夹)目录 dir
+#返回result 和 err, err记录读取出错的图片路径
 def get_videos_faces(model: Face_Onnx, video_paths, enhance=False,
                      confidence =0.99):
     result = []
+    err = []
     for keyframes_path in video_paths:
         path_list = []
         for file_name in os.listdir(keyframes_path):
             path_list.append(os.path.join(keyframes_path, file_name))
         # print(path_list)
-        _faces = get_align_faces_batch(model, path_list ,enhance=enhance,
+        _faces, _err = get_align_faces_batch(model, path_list ,enhance=enhance,
                                       confidence=confidence, merge=True)
+        err += _err
         # print(len(_faces))
         result.append(_faces)
         # print(len(result[0]))
-    return result
+    return result, err
 
 # 批量获取关键帧中提取出的人脸的向量
 #faces_spaths为list，list中的每个path是一个视频的人脸(文件夹)目录 dir
+#返回result 和 err, err记录读取出错的图片路径
 def get_video_extracted_face_embedding(model: Face_Onnx, faces_paths, threshold=0.5):
     result = []
+    err = []
     for faces_path in faces_paths:
         path_list = []
         for file_name in os.listdir(faces_path):
             path_list.append(os.path.join(faces_path, file_name))
-        raw_embeddings = get_face_embeddings(model, path_list, aligned=True, merge=True)
+        raw_embeddings, _err = get_face_embeddings(model, path_list, aligned=True, merge=True)
+        err += _err
 
         embeddings = squeeze_faces(raw_embeddings, threshold)
         result.append(embeddings)
 
-    return result
+    return result, err
 
 
 #批量获取视频关键帧的人脸向量，包含同个视频不同关键帧的人脸去重
 #video_spaths为list，list中的每个path是一个视频的关键帧的(文件夹)目录 dir
+#返回result 和 err, err记录读取出错的图片路径
 def get_videos_face_embedding(model: Face_Onnx, video_paths, enhance=False,
                               confidence =0.99, threshold=0.5):
     result = []
+    err = []
     for keyframes_path in video_paths:
         path_list = []
         for file_name in os.listdir(keyframes_path):
             path_list.append(os.path.join(keyframes_path, file_name))
         # print(path_list)
-        raw_embeddings = get_face_embeddings(model, path_list, False,
+        raw_embeddings, _err = get_face_embeddings(model, path_list, False,
                                       enhance, confidence, True)
+        err += _err
         # print('raw: ' + str(len(raw_embeddings)))
         embeddings = squeeze_faces(raw_embeddings, threshold)
         # print('fine: ' + str(len(embeddings)))
         result.append(embeddings)
-    return result
+    return result, err
 
 
 
 #批量获取对齐的人脸
 #paths为list，list中的每个path是一张图片的路径
+#返回result 和 err, err记录读取出错的图片路径
 def get_align_faces_batch(model: Face_Onnx, paths,
                           enhance=False, confidence=0.99, merge=False):
     align_faces = []
+    err = []
     for path in paths:
         img = cv_imread(path)
+        if img is None:
+            err.append(path)
+            continue
+
         _align_face = model.extract_face(img, enhance=enhance,
                                          confidence=confidence)
 
@@ -84,16 +103,22 @@ def get_align_faces_batch(model: Face_Onnx, paths,
             align_faces += _align_face
         else:
             align_faces.append(_align_face)
-    return align_faces
+    return align_faces, err
 
 
 #批量获取图片中的人脸向量
 #paths为list，list中的每个path是一张图片的路径
+#返回result 和 err, err记录读取出错的图片路径
 def get_face_embeddings(model: Face_Onnx, paths, aligned=False,
                         enhance=False, confidence=0.99, merge=False):
     embeddings = []
+    err = []
     for path in paths:
         img = cv_imread(path)
+        if img is None:
+            err.append(path)
+            continue
+
         embedding = model.turn2embeddings(img, enhance=enhance, aligned=aligned,
                                           confidence=confidence)
         if merge:
@@ -102,7 +127,7 @@ def get_face_embeddings(model: Face_Onnx, paths, aligned=False,
         else:
             embeddings.append(embedding)
 
-    return embeddings
+    return embeddings, err
 
 
 #人脸向量插入Milvus
@@ -231,9 +256,11 @@ def search_face_video(model: Face_Onnx, collection, imgs, enhance=False,
 
 
 #批获取人脸图片的质量分数
+#返回result 和 err, err记录读取出错的图片路径
 def get_face_quality_batch(model: Face_Onnx, paths,
                            aligned=False):
     faces = []
+    err = []
     if not aligned:
         _faces = get_align_faces_batch(model, paths, enhance=False, confidence=0.99)
         for single in _faces:
@@ -242,6 +269,9 @@ def get_face_quality_batch(model: Face_Onnx, paths,
     else:
         for path in paths:
             img = cv_imread(path)
+            if img is None:
+                err.append(path)
+                continue
             faces.append(img)
 
 
@@ -249,29 +279,35 @@ def get_face_quality_batch(model: Face_Onnx, paths,
     for face in faces:
         score = model.tface.forward(face)
         scores.append(score)
-    return scores
+    return scores, err
 
 
 # 批获取增强后的对齐人脸图片
+#返回result 和 err, err记录读取出错的图片路径
 def enhance_face_batch(model: Face_Onnx, paths,
                        aligned=False):
     aligned_faces = []
     enhance_faces = []
+    err = []
     if not aligned:
-        _aligned_faces = get_align_faces_batch(model, paths, True, 0.99)
+        _aligned_faces, _err = get_align_faces_batch(model, paths, True, 0.99)
+        err += _err
         for face in _aligned_faces:
             aligned_faces.append(face[0])
 
     else:
         for path in paths:
             img = cv_imread(path)
+            if img is None:
+                err.append(path)
+                continue
             img = cv2.resize(img, (512, 512))
             aligned_faces.append(img)
 
     for face in aligned_faces:
         _face = model.gfpgan.forward(face, True)
         enhance_faces.append(_face)
-    return enhance_faces
+    return enhance_faces, err
 
 
 

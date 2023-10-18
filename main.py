@@ -22,8 +22,8 @@ milvus_conf = conf['milvus']
 # 使用initialize.py 重新初始化创建了Face_Search数据库
 con = local_milvus.create_connection(host=milvus_conf['host'], port=milvus_conf['port'],
                         user=milvus_conf['user'], password=milvus_conf['password'], db_name='Face_Search')
-
-
+#
+#
 # 获取Milvus中的collection，并且加载到内存中
 image_collection = local_milvus.get_collection("image_faces", load=True)
 video_collection = local_milvus.get_collection("video_faces", load=True)
@@ -37,9 +37,10 @@ img_paths = [img1_path, img2_path, img3_path]
 
 # 提取人脸并且对齐人脸
 start = time.time()
-extracted_faces = face_service.get_align_faces_batch(face_model, img_paths,
+extracted_faces, err = face_service.get_align_faces_batch(face_model, img_paths,
                                                    enhance=False, confidence=0.99)
 print('提取人脸耗时:' + str(time.time()-start))
+print(err)
 # 把结果写在./res_img目录下查看
 res_path = './res_img'
 res_paths = []
@@ -52,8 +53,9 @@ for i, single in enumerate(extracted_faces):
 
 # 增强提取处来的人脸
 start = time.time()
-enhanceed_faces = face_service.enhance_face_batch(face_model, res_paths, aligned=True)
+enhanceed_faces, err = face_service.enhance_face_batch(face_model, res_paths, aligned=True)
 print('增强人脸耗时:' + str(time.time()-start))
+print(err)
 #把增强后的人脸写在 /res_img下
 for i , face in enumerate(enhanceed_faces):
     name = res_paths[i].split('.jpg') [0] + 'enhanceed.jpg'
@@ -68,15 +70,16 @@ for single in res_list:
 
 # 获取人脸图片的质量分数
 start = time.time()
-scores = face_service.get_face_quality_batch(face_model, res_paths, aligned=True)
+scores, err = face_service.get_face_quality_batch(face_model, res_paths, aligned=True)
 print('获取质量分数耗时:' + str(time.time()-start))
 print('质量分数:' + str(scores))
-
+print(err)
 
 # 获取对齐后的人脸向量， 一张图片就是一个人脸图片，
 start = time.time()
-embeddings = face_service.get_face_embeddings(face_model, res_paths, aligned=True)
+embeddings, err = face_service.get_face_embeddings(face_model, res_paths, aligned=True)
 print('获取对齐后的人脸向量耗时:' + str(time.time()-start))
+print(err)
 #打印向量维度 512维
 print(len(embeddings[0][0]))
 
@@ -87,10 +90,11 @@ get_align_faces_batch() + get_face_embeddings(aligned=True)
 
 '''
 start = time.time()
-embeddings = face_service.get_face_embeddings(face_model, img_paths, aligned=False)
+embeddings, err = face_service.get_face_embeddings(face_model, img_paths, aligned=False)
 print('获取图片中的人脸向量耗时:' + str(time.time()-start))
 print(len(embeddings[0]))
 print(len(embeddings[2]))
+print(err)
 
 '''
 把特征人脸特征向量插入Milvus， 图片人脸就插入image_collection,

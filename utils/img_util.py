@@ -54,7 +54,10 @@ def read_img(path, is_url=False):
 
 
 def cv_imread(file_path):
-    cv_img = cv2.imdecode(np.fromfile(file_path,dtype=np.uint8),cv2.IMREAD_COLOR)
+    try:
+        cv_img = cv2.imdecode(np.fromfile(file_path,dtype=np.uint8),cv2.IMREAD_COLOR)
+    except:
+        cv_img = None
     return cv_img
 
 def down_image(img):

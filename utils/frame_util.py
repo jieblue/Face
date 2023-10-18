@@ -11,7 +11,11 @@ import numpy as np
 def extract_video(video_path):
     # return a list of nparray(bgr image)
     # print(video_path)
-    container = av.open(video_path)
+    try:
+        container = av.open(video_path)
+    except:
+        return None
+
     result = []
     # Signal that we only want to look at keyframes.
     stream = container.streams.video[0]
