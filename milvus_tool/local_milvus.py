@@ -8,6 +8,8 @@ from pymilvus import (
     db,
 
 )
+from pymilvus.client.types import LoadState
+
 
 # 这个文件是对Milvus操作的相关方法， 详见 https://milvus.io/docs
 
@@ -63,7 +65,8 @@ def has_database(database_name):
 def get_collection(collection_name, load=True):
     collection = Collection(collection_name)
     if load:
-        collection.load()
+        if utility.load_state(collection_name) == LoadState.NotLoad:
+            collection.load()
     return collection
 
 
