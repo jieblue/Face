@@ -48,6 +48,8 @@
   + 数据管理：https://milvus.io/docs/insert_data.md
   + 创建索引：https://milvus.io/docs/build_index.md
   + 向量搜索：https://milvus.io/docs/search.md
+  + 备份：https://milvus.io/docs/milvus_backup_overview.md
+  + pymilvus api：https://milvus.io/api-reference/pymilvus/v2.3.x/About.md
 
 #### onnx
   + pytorch模型导出为onnx：https://learn.microsoft.com/zh-cn/windows/ai/windows-ml/tutorials/pytorch-analysis-convert-model
