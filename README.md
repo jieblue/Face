@@ -20,6 +20,7 @@
 
 ### 项目结构
 + config/weights存放模型权重 config/config.yml 存放配置信息 config/warm_up.jpg是用于预热模型的输入图片 config.config.get_config 返回配置信息
++ 模型权重 https://drive.google.com/drive/folders/1cPWvYTw2qOPVc8dP_EXHGjFTXk9o8HEz?usp=drive_link
 + model 包存放模型功能代码
 + init/initialize.py 用来初始化Milvus数据库中的表(collection)，安装完并启动Milvus后，执行initialize.py
 + milvus_tool包存放milvus数据库相关操作
