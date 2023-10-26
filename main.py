@@ -20,13 +20,13 @@ milvus_conf = conf['milvus']
 #创建和Milvus的连接
 # db_name 表示连接的数据库名称，之前使用的是default, 考虑到拓展性，
 # 使用initialize.py 重新初始化创建了Face_Search数据库
-con = local_milvus.create_connection(host=milvus_conf['host'], port=milvus_conf['port'],
-                        user=milvus_conf['user'], password=milvus_conf['password'], db_name='Face_Search')
+# con = local_milvus.create_connection(host=milvus_conf['host'], port=milvus_conf['port'],
+#                         user=milvus_conf['user'], password=milvus_conf['password'], db_name='Face_Search')
 #
 #
 # 获取Milvus中的collection，并且加载到内存中
-image_collection = local_milvus.get_collection("image_faces", load=True)
-video_collection = local_milvus.get_collection("video_faces", load=True)
+# image_collection = local_milvus.get_collection("image_faces", load=True)
+# video_collection = local_milvus.get_collection("video_faces", load=True)
 
 
 img1_path ='./test_img/0.jpg'
@@ -114,5 +114,5 @@ embedding 是一个人脸特征向量
 # print(res)
 
 # 把collection 从内存中释放， Milvus的查询需要把collection加载到内存中，程序结束时才要释放
-image_collection.release()
-video_collection.release()
+# image_collection.release()
+# video_collection.release()
