@@ -8,7 +8,9 @@
   - Milvus可视化管理工具 Attu: https://github.com/zilliztech/attu
 #### 人脸项目环境配置
   安装annconda，后创建python版本为3.8的虚拟环境，之后在该虚拟环境内安装以下包
-  - 与本机环境适配的pytorch和cuda版本，开发时使用的版本为torch2.0，https://pytorch.org/get-started/locally/
+  - 与本机环境适配的pytorch和cuda版本，开发时使用的版本为torch2.0，使用其他版本也可以，与系统环境适配即可
+    - pytorch安装官网 https://pytorch.org/get-started/locally/
+    - pytorch历史版本 https://pytorch.org/get-started/previous-versions/
   - 安装onnx， pip install onnx -i https://pypi.tuna.tsinghua.edu.cn/simple
   - 安装onnxruntime-gpu, pip install onnxruntime-gpu -i https://pypi.tuna.tsinghua.edu.cn/simple
   - 安装opencv，pip install opencv-python==4.8.0.74 -i https://pypi.tuna.tsinghua.edu.cn/simple
