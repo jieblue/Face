@@ -86,21 +86,25 @@ def create_index(collection, field, index_type="IVF_SQ8",
 
 
 
+# 插入数据
 def insert_data(collection: Collection, data):
     res = collection.insert(data)
     return res.primary_keys
     #
 
-
+#搜索向量
 def search_vectors(collection, field, vectors, output_fields,
-                   search_params=None, limit=3, nprobe=50):
+                   search_params=None, limit=3, nprobe=50, offset=1):
 
     if search_params is None:
         search_params = {
             "metric_type": "IP",
+            "offset": offset,
+            "ignore_growing": False,
             "params": {"nprobe": nprobe},
         }
     limit = 16383 if limit > 16383 else limit
+    offset= 16383 if offset > 16383 else offset
     res = collection.search(vectors, field, search_params,
                             limit=limit, output_fields=output_fields, round_decimal=4)
     return res

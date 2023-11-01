@@ -186,8 +186,9 @@ def delete_face_by_object_id(collection, object_ids):
 
 
 #批量人脸搜索图片
+#offset为 跳过搜索结果的前n个entity，用于分页返回的话 offset = 页大小 * 前置页数
 def search_face_image(model: Face_Onnx, collection, imgs,
-                      enhance=False, score=0.5, limit=10, nprobe=50):
+                      enhance=False, score=0.5, limit=10, nprobe=50, offset=0):
     embeddings = []
     for img in imgs:
         embedding = model.turn2embeddings(img, enhance=enhance)
@@ -197,7 +198,7 @@ def search_face_image(model: Face_Onnx, collection, imgs,
         embeddings.append(embedding[0])
 
     search_res = search_vectors(collection, 'embedding', embeddings,
-                                output_fields=['object_id'], limit=limit, nprobe=nprobe)
+                                output_fields=['object_id'], limit=limit, nprobe=nprobe, offset=offset)
     result = []
     for one in search_res:
         _result = []

@@ -20,6 +20,7 @@ milvus_conf = conf['milvus']
 #创建和Milvus的连接
 # db_name 表示连接的数据库名称，之前使用的是default, 考虑到拓展性，
 # 使用initialize.py 重新初始化创建了Face_Search数据库
+#default
 con = local_milvus.create_connection(host=milvus_conf['host'], port=milvus_conf['port'],
                         user=milvus_conf['user'], password=milvus_conf['password'], db_name='Face_Search')
 
@@ -39,29 +40,29 @@ img2 = cv_imread(img2_path)
 imgs = [img1, img2]
 start = time.time()
 res = face_service.search_face_image(face_model, image_collection, imgs,
-                                            enhance=False, score=0.4, limit=30, nprobe=50)
+                                            enhance=False, score=0.4, limit=2, nprobe=50, offset=0)
 print('搜索耗时: ' + str(time.time()-start))
 print("搜索结果: ")
 print(res)
 
-object_ids = ['3214412', '1', '2', 'dadadada', 'dad32fdsfds']
-start = time.time()
-res = face_service.delete_face_by_object_id(image_collection, object_ids)
-print('删除耗时: ' + str(time.time()-start))
-print(res)
+# object_ids = ['3214412', '1', '2', 'dadadada', 'dad32fdsfds']
+# start = time.time()
+# res = face_service.delete_face_by_object_id(image_collection, object_ids)
+# print('删除耗时: ' + str(time.time()-start))
+# print(res)
+# #
+# #
 #
+# # 根据priimary_key 批量删除
+# base = 444134326410189121
+# primary_keys = []
 #
-
-# 根据priimary_key 批量删除
-base = 444134326410189121
-primary_keys = []
-
-for i in range(10000):
-    primary_keys.append(++base)
-res = face_service.delete_face_by_primary_key_batch(image_collection, primary_keys)
-
-image_collection.release()
-video_collection.release()
+# for i in range(10000):
+#     primary_keys.append(++base)
+# res = face_service.delete_face_by_primary_key_batch(image_collection, primary_keys)
+#
+# image_collection.release()
+# video_collection.release()
 
 
 
