@@ -19,14 +19,14 @@
   - 安装pyyaml，pip install pyyaml==6.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ##### pytorch && cuda 安装tips
   - 查看系统的cuda版本，虚拟环境的cuda版本不能高于系统的cuda版本
-  ![634e06bf46294039c6d591aadac0d3cc.png](..%2F..%2F..%2FUsers%2Fjieblue%2FDesktop%2F634e06bf46294039c6d591aadac0d3cc.png)
+  ![img_5.png](readme_imgs%2Fimg_5.png)
   - 在pytorch官网查找适配的pytorch版本，找到有对应cuda版本的pytorch版本
-  ![img_2.png](img_2.png)
+  ![img_2.png](readme_imgs%2Fimg_2.png)
   - 如果anaconda有更换源的话，去掉安装命令后面的参数 -c xxxx
   - 会有一些版本没有清华源，可以在清华源查看有哪些版本的pytorch
    https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/pytorch/linux-64/
   - 安装torch2.0可以只用pip安装很方便，如果安装过程中出现pip无法安装其他包需要的所有依赖，不用理他，接着安装，是可以正常使用的
-   ![img_3.png](img_3.png)
+  ![img_3.png](readme_imgs%2Fimg_3.png)
   - 测试pytorch、cuda是否安装成功, 执行pytrch_cuda_test.py, 输出true表示成功
     
 #### 视频检索项目环境配置
@@ -40,7 +40,7 @@
       - python
       - import tensorflow as tf
       - tf.config.experimental.list_physical_devices('GPU')
-      ![img_1.png](img_1.png)(安装成功.png)
+      ![img_1.png](readme_imgs%2Fimg_1.png)
   - 安装opencv，pip install opencv-python==4.8.0.76 -i https://pypi.tuna.tsinghua.edu.cn/simple
   - 安装av, pip install av==8.0.3 -i https://pypi.tuna.tsinghua.edu.cn/simple
   - 安装pymilvus, 版本要符合跟Milvus版本的对于关系，pip install pymilvus==2.2.9 -i https://pypi.tuna.tsinghua.edu.cn/simple 
@@ -69,7 +69,7 @@
 ### 人脸相关文档
 
 #### 人脸模型部署概览：
-  ![img.png](img.png)
+![img.png](readme_imgs%2Fimg.png)
 
 #### 向量数据库Milvus:
   + 连接Milvus：https://milvus.io/docs/manage_connection.md
