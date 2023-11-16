@@ -17,6 +17,10 @@ from pymilvus import (
 import traceback
 
 import uuid
+import logging
+from config.config import *
+
+
 
 class UniqueGenerator:
     def __init__(self):
@@ -28,40 +32,57 @@ class UniqueGenerator:
             unique_value = str(uuid.uuid4())
         self.generated_values.add(unique_value)
         return unique_value
-    
 
-# 获取config信息
-# conf = get_config()
 
-# 加载人脸模型 加载模型会耗时比较长
+app = Flask(__name__)
+# Create a logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
-# 加载视频模型
+# Define the log file and format
+log_file = 'video_app.log'
+log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+# Create a file handler and set the log format
+file_handler = logging.FileHandler(log_file)
+file_handler.setFormatter(log_format)
+
+# Create a stream handler to print log messages to the console
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(log_format)
+
+# Add both handlers to the logger
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
+
+conf = get_config()
+milvus_conf = conf['milvus']
+
+
 video_model = Video_Model('./config/weights/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5', gpu_id=0)
+logger.info("Video model loaded successfully")
 
 
-# 获取Milvus的配置
-# milvus_conf = conf['milvus']
-# print("Milvus 配置信息： " + str(conf['milvus']))
-# print(f"start connecting to Milvus")
 
-connections.connect("default", host="192.168.104.9", port="19530")
+connections.connect("default", host=milvus_conf["host"], port=milvus_conf["port"])
+logger.info("Milvus connection established successfully")
+
 
 video_frame_v1_name = "video_faces_v1"
+hdfs_prefix = "/VIDEO_FACE_TEST/video/"
 
 has = utility.has_collection(video_frame_v1_name)
-print(f"Does collection {video_frame_v1_name} exist in Milvus: {has}")
-
-
-print("Milvus 链接成功")
+logger.info(f"Does collection {video_frame_v1_name} exist in Milvus: {has}")
 
 fields = [
-            FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=128),
-            FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=2048),
-            FieldSchema(name="hdfs_path", dtype=DataType.VARCHAR, max_length=256),
+    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=128),
+    FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=2048),
+    FieldSchema(name="hdfs_path", dtype=DataType.VARCHAR, max_length=256),
 
-        ]
+]
 schema = CollectionSchema(fields, "video_frame_v1_name is the simplest demo to introduce the APIs")
 video_frame_v1 = Collection(video_frame_v1_name, schema)
+logger.info(f"Collection {video_frame_v1_name} created successfully")
 
 index = {
     "index_type": 'IVF_FLAT',
@@ -70,24 +91,18 @@ index = {
 }
 
 video_frame_v1.create_index("embedding", index)
-print("Milvus embedding index  创建成功")
+logger.info(f"Index {index} created successfully")
 
 video_frame_v1.load()
 
-print("Milvus collection 加载成功")
+logger.info(f"Collection {video_frame_v1_name} loaded successfully")
 
 key_frames_path = './keyframes'
 key_faces_path = './keyframes_faces'
-app = Flask(__name__)
 
-# 加载视频模型
-video_model = Video_Model('./config/weights/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5', gpu_id=0)
 
-key_frames_path = './keyframes'
-key_faces_path = './keyframes_faces'
 @app.route('/api/ability/video_vectorization', methods=['POST'])
 def video_vectorization():
-
     result = {
         "code": 0,
         "msg": "success",
@@ -98,31 +113,31 @@ def video_vectorization():
         # 必须是本地磁盘路径
         video_path = json_data["videoPath"]
         video_id = json_data["videoId"]
+        logger.info(f"video_path: {video_path}")
+        logger.info(f"video_id: {video_id}")
         if not os.path.exists(video_path):
             result["code"] = -1
             result["msg"] = "视频路径不存在"
             return jsonify(result)
         # 获取文件名唯一标识
         unique_filename = video_id
-        print(f"Processing video file: {unique_filename}")
-
+        logger.info(f"Processing video file: {unique_filename}")
 
         # Extract key frames from video
         key_frames_info_list = video_service.extract_video(video_path, unique_filename)
         print(f"Extracted {len(key_frames_info_list)} key frames from video in {time.time() - start_time:.2f} seconds")
+        logger.info(
+            f"Extracted {len(key_frames_info_list)} key frames from video in {time.time() - start_time:.2f} seconds")
 
-        
         # Write key frames to disk
         video_service.save_frame_to_disk(key_frames_info_list, key_frames_path, unique_filename)
-        print(f"Wrote {len(key_frames_info_list)} key frames to disk in {time.time() - start_time:.2f} seconds")
+        logger.info(f"Wrote {len(key_frames_info_list)} key frames to disk in {time.time() - start_time:.2f} seconds")
 
         # 获取关键帧向量
         frame_feature_list = video_service.get_frames_feature(video_model, key_frames_info_list)
-        print(f"Extracted {len(frame_feature_list)} key frames features from video in {time.time() - start_time:.2f} seconds")
-        print(frame_feature_list)
-        
-        hdfs_prefix = "/VIDEO_FACE_TEST/video/"
-        entities = [[],[], []]
+        logger.info( f"Extracted {len(frame_feature_list)} key frames features from video in {time.time() - start_time:.2f} seconds")
+
+        entities = [[], [], []]
 
         frame_result_list = []
         for i, frame_info in enumerate(frame_feature_list):
@@ -130,11 +145,11 @@ def video_vectorization():
             if length > 0:
                 entities[0].append(frame_info['frame_embedding_id'])
                 entities[1].append(frame_info['frame_feature'])
-                hdfs_file = hdfs_prefix + frame_info['unique_filename'] + "/" + frame_info['frame_embedding_id'] + ".jpg"
+                hdfs_file = hdfs_prefix + frame_info['unique_filename'] + "/" + frame_info[
+                    'frame_embedding_id'] + ".jpg"
                 frame_info['hdfs_path'] = hdfs_file
                 entities[2].append(hdfs_file)
                 frame_result_list.append(frame_info)
-
 
         # Insert embeddings into Milvus
         res = video_frame_v1.insert(entities)
@@ -148,23 +163,23 @@ def video_vectorization():
             del frame_info['frame']
             del frame_info['frame_feature']
 
-
         # result['milvs_msg'] = res
         result['face_info_list'] = frame_result_list
     except Exception as e:
         traceback.print_exc()
-    # handle the exception
+        # handle the exception
         result["code"] = -100
         result['unique_filename'] = unique_filename
-    
+
     return jsonify(result)
+
 
 video_predict_dir = '/tmp/video_predict_tmp'
 generator = UniqueGenerator()
 
+
 @app.route('/api/ability/video_predict', methods=['POST'])
 def face_predict():
-    
     result = {
         "code": 0,
         "msg": "success",
@@ -184,10 +199,9 @@ def face_predict():
     offset = (int(page_num) - 1) * int(page_size)
     search_params = {
         "metric_type": "L2",
-         "offset": offset, 
+        "offset": offset,
         "params": {"nprobe": 20},
     }
-
 
     if file:
         uuid_filename = generator.generate_unique_value()
@@ -206,15 +220,35 @@ def face_predict():
         # res = video_service.search_face_image(face_model, image_faces_v1, imgs,
         #                                             enhance=False, score=float(score), limit=int(page_size), 
         #                                             search_params=search_params)
-        
-        res = video_frame_v1.search([search_vectors], 'embedding', search_params, limit=int(page_size), output_fields=['hdfs_path'])
-        print('搜索耗时: ' + str(time.time()-start))
+
+        res = video_frame_v1.search([search_vectors], 'embedding', search_params, limit=int(page_size),
+                                    output_fields=['hdfs_path'])
+        frame_result = []
+        for one in res:
+            _result = []
+            for single in one:
+                # print(single)
+                tmp = {
+                    # 'primary_key': single.id,
+                    'id': single.entity.id,
+                    'score': single.distance,
+                    'hdfs_path': single.entity.hdfs_path
+                }
+                # get_search_result(single.id, single.entity.user_id, single.score)
+                _result.append(tmp)
+            frame_result.append(_result)
+        print('搜索耗时: ' + str(time.time() - start))
         print("搜索结果: ")
         print(res)
-        result['res'] = res
+        print("搜索结果 res[0]: ")
+        print(res[0])
+        result['res'] = frame_result
     else:
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
+
+    print('Result')
+    print(result)
     return jsonify(result)
 
 

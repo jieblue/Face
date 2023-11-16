@@ -6,4 +6,17 @@ milvus:
   default_password: Milvus # milvus default password
   password: Milvus
 
+video_app:
+  model_path: /home/lyc/Downloads/roberta_zh_l12
+  log_file: video_app.log
+
+face_app:
+  model_path: /home/lyc/Downloads/roberta_zh_l12
+  log_file: face_app.log
+  image_face_collection: image_faces_v1
+  main_avatar_collection: main_avatars_v1
+  hdfs_prefix: "/VIDEO_FACE_TEST/face/"
+  face_predict_dir: "/tmp/face_predict_tmp"
+  video_id_file_path: "/home/ubuntu/jack_test_workspace/shell_test"
+
 
