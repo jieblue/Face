@@ -1,5 +1,28 @@
+#milvus:
+#  host: 127.0.0.1
+#  port: 19530
+#  user: root
+#  init: True # only working when init milvus
+#  default_password: Milvus # milvus default password
+#  password: Milvus
+#
+#video_app:
+#  model_path: /home/lyc/Downloads/roberta_zh_l12
+#  log_file: video_app.log
+#
+#face_app:
+#  model_path: /home/lyc/Downloads/roberta_zh_l12
+#  log_file: face_app.log
+#  image_face_collection: image_faces_v1
+#  main_avatar_collection: main_avatars_v1
+#  hdfs_prefix: "/VIDEO_FACE_TEST/face/"
+#  face_predict_dir: "/tmp/face_predict_tmp"
+#  video_id_file_path: "/home/ubuntu/jack_test_workspace/shell_test"
+
+
+# 正式环境的配置
 milvus:
-  host: 127.0.0.1
+  host: 10.10.38.87
   port: 19530
   user: root
   init: True # only working when init milvus
@@ -15,8 +38,6 @@ face_app:
   log_file: face_app.log
   image_face_collection: image_faces_v1
   main_avatar_collection: main_avatars_v1
-  hdfs_prefix: "/VIDEO_FACE_TEST/face/"
+  hdfs_prefix: "/VIDEO_FACE_TEST_LDH/face/"
   face_predict_dir: "/tmp/face_predict_tmp"
-  video_id_file_path: "/home/ubuntu/jack_test_workspace/shell_test"
-
-
+  video_id_file_path: "/home/gpu6/video-face-project/need_upload_hdfs"
