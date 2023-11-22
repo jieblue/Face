@@ -4,7 +4,6 @@ import os.path
 import time
 
 from model.model_onnx import *
-from model.model_video import *
 from utils.img_util import *
 from config.config import *
 from milvus_tool.local_milvus import *
@@ -32,8 +31,48 @@ import shutil
 
 import cv2
 import numpy as np
+import logging
 
 
+class UniqueGenerator:
+    def __init__(self):
+        self.generated_values = set()
+
+    def generate_unique_value(self):
+        unique_value = str(uuid.uuid4())
+        while unique_value in self.generated_values:
+            unique_value = str(uuid.uuid4())
+        self.generated_values.add(unique_value)
+        return unique_value
+
+
+# 获取config信息
+conf = get_config()
+
+# Create a logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# 获取face_app的配置
+face_app_conf = conf['face_app']
+# 获取Milvus的配置
+milvus_conf = conf['milvus']
+log_file = face_app_conf['log_file']
+
+# Define the log file and format
+log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+# Create a file handler and set the log format
+file_handler = logging.FileHandler(log_file)
+file_handler.setFormatter(log_format)
+
+# Create a stream handler to print log messages to the console
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(log_format)
+
+# Add both handlers to the logger
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
 
 
 def extract_video(video_path, unique_filename):
@@ -72,7 +111,6 @@ def extract_video(video_path, unique_filename):
         })
         frame_num = frame_num + 1
 
-
     return result
 
 
@@ -81,6 +119,7 @@ def av_frame2np(frame):
     np_frame = np.array(img_frame)
     np_frame = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
     return np_frame
+
 
 def get_align_faces_batch(model: Face_Onnx, paths,
                           enhance=False, confidence=0.99, merge=False):
@@ -114,11 +153,10 @@ def get_align_faces_batch(model: Face_Onnx, paths,
         if merge:
             raise NotImplementedError
         else:
-            print("======_align_face===========")
             keyframe_path_info['align_face'] = _align_face
-            print("end======_align_face===========")
 
             keyframe_path_info['face_num'] = face_num
+            logger.info(path + " get_align_faces_batch: " + str(face_num))
 
 
 def get_face_embeddings(model: Face_Onnx, paths, aligned=False,
@@ -152,6 +190,7 @@ def get_face_embeddings(model: Face_Onnx, paths, aligned=False,
         else:
             face_info['embedding'] = embedding
 
+
 # @app.route('/api/ability/squeeze_faces', methods=['POST'])
 def squeeze_faces(faces_list, threshold=0.48):
     """
@@ -167,7 +206,7 @@ def squeeze_faces(faces_list, threshold=0.48):
     faces = np.array(faces_list)
     _len = len(faces_list)
 
-    #numpy to tensor
+    # numpy to tensor
     faces_tensor = torch.from_numpy(faces).float()
     unique_vectors = []
     # ids = []
@@ -219,8 +258,6 @@ def save_frame_to_disk(key_frames, key_frames_path, unique_filename):
         cv2.imwrite(file_path, frame)
 
 
-
-
 def save_face_to_disk(key_frames_info_list, key_faces_path, unique_filename):
     """
     Save detected faces to disk.
@@ -237,7 +274,7 @@ def save_face_to_disk(key_frames_info_list, key_faces_path, unique_filename):
     face_info_list = []
     face_num = 0
     for key_frames_info in key_frames_info_list:
-        
+
         for keyframes_face_info in key_frames_info['align_face']:
             face_num = face_num + 1
             face_info = {}
@@ -248,8 +285,9 @@ def save_face_to_disk(key_frames_info_list, key_faces_path, unique_filename):
 
             dir_path = os.path.join(key_faces_path, unique_filename)
             os.makedirs(dir_path, exist_ok=True)
-            
-            face_embedding_id = key_frames_info['unique_filename'] + "_" + str(key_frames_info['frame_num']) + "_" + str(key_frames_info["timestamp"]) + "_" + str(face_num)
+
+            face_embedding_id = key_frames_info['unique_filename'] + "_" + str(
+                key_frames_info['frame_num']) + "_" + str(key_frames_info["timestamp"]) + "_" + str(face_num)
             face_info['face_embedding_id'] = face_embedding_id
             file_name = f"{face_embedding_id}.jpg"
             file_path = os.path.join(dir_path, file_name)
@@ -258,10 +296,6 @@ def save_face_to_disk(key_frames_info_list, key_faces_path, unique_filename):
             face_info_list.append(face_info)
             face_info['single_align_face'] = keyframes_face_info
             cv2.imwrite(file_path, keyframes_face_info)
-            
-
-
-
 
     return face_info_list
 
@@ -271,7 +305,7 @@ def add_embeddings2milvus(collection, faces, flush=False):
     result = []
     for single in faces:
         id = str(single['id'])
-        if len(id)>50:
+        if len(id) > 50:
             return []
 
     for i, face in enumerate(faces):
@@ -280,33 +314,31 @@ def add_embeddings2milvus(collection, faces, flush=False):
         embedding = face['embedding']
         data[0].append(id)
         data[1].append(embedding)
-     
 
-        if i == len(faces)-1 or len(data[0])>=5000:
+        if i == len(faces) - 1 or len(data[0]) >= 5000:
             pks = insert_data(collection, data)
             # print(pks)
             data[0].clear()
             data[1].clear()
             for pk in pks:
                 result.append(
-                    {"primary_key": pk ,
-                     'isSuccess': True} )
+                    {"primary_key": pk,
+                     'isSuccess': True})
     if flush:
         collection.flush()
-    return  result
+    return result
 
 
-#批量人脸搜索图片
+# 批量人脸搜索图片
 def search_face_image(model: Face_Onnx, collection, imgs,
-                      enhance=False, score=0.5, limit=10, search_params=None):
+                      enhance=False, score=0.5, limit=10, search_params=None, nprobe=50):
     embeddings = []
     for img in imgs:
         embedding = model.turn2embeddings(img, enhance=enhance)
-        if len(embedding)==0:
+        if len(embedding) == 0:
             embeddings.append(np.zeros([512], dtype=np.float32))
             continue
         embeddings.append(embedding[0])
-    
 
     if search_params is None:
         search_params = {
@@ -315,7 +347,7 @@ def search_face_image(model: Face_Onnx, collection, imgs,
         }
     limit = 16383 if limit > 16383 else limit
     search_res = collection.search(embeddings, 'embedding', search_params,
-                            limit=limit, output_fields=['object_id', 'hdfs_path'], round_decimal=4)
+                                   limit=limit, output_fields=['object_id', 'hdfs_path'], round_decimal=4)
     result = []
     for one in search_res:
         _result = []
@@ -329,16 +361,16 @@ def search_face_image(model: Face_Onnx, collection, imgs,
                     'score': single.score,
                     'hdfs_path': single.entity.hdfs_path
 
-                 }
-                #get_search_result(single.id, single.entity.user_id, single.score)
+                }
+                # get_search_result(single.id, single.entity.user_id, single.score)
                 _result.append(tmp)
         result.append(_result)
 
     return result
 
+
 def search_vectors(collection, field, vectors, output_fields,
                    search_params=None, limit=3, nprobe=50):
-
     if search_params is None:
         search_params = {
             "metric_type": "IP",
@@ -350,8 +382,25 @@ def search_vectors(collection, field, vectors, output_fields,
     return res
 
 
+# 批获取人脸图片的质量分数
+# 返回result 和 err, err记录读取出错的图片路径
+# 批获取人脸图片的质量分数
+# imgs为list，list中的每个img是经过人脸检测得到的人脸图片
+# 返回result 和 err, err记录错误信息，暂时为空list
+def get_face_quality_batch_img(model: Face_Onnx, imgs):
+    result = []
+    for img in imgs:
+        score = model.tface.forward(img)
+        result.append(score)
+    return result
 
 
-    
-    
-        
+# 批获取人脸图片的质量分数
+# 返回result 和 err, err记录读取出错的图片路径
+# 批获取人脸图片的质量分数
+# imgs为list，list中的每个img是经过人脸检测得到的人脸图片
+# 返回result 和 err, err记录错误信息，暂时为空list
+def get_face_quality_single_img(model: Face_Onnx, image_path):
+    img = cv_imread(image_path)
+    score = model.tface.forward(img)
+    return score

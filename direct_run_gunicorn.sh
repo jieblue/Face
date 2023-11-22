@@ -5,4 +5,7 @@ ip_address=$1
 project_path=$2
 
 # Run the gunicorn command with output redirection
-gunicorn face_app:app -b "$ip_address" --timeout 6000 --access-logfile "$project_path/access.log"
+#gunicorn face_app:app -b "$ip_address" --timeout 6000 --access-logfile "$project_path/access.log"
+
+#正式环境
+gunicorn face_app:app --threads 4 -b "$ip_address" --timeout 6000 --access-logfile "$project_path/access.log"
