@@ -263,7 +263,8 @@ def get_face_quality_batch(model: Face_Onnx, paths,
     faces = []
     err = []
     if not aligned:
-        _faces = get_align_faces_batch(model, paths, enhance=False, confidence=0.99)
+        _faces, _err = get_align_faces_batch(model, paths, enhance=False, confidence=0.99)
+        # print(_faces)
         for single in _faces:
             faces.append(single[0])
 
