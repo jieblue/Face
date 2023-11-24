@@ -1,37 +1,11 @@
-from flask import Flask, request, jsonify
-from utils.frame_util import *
-import os.path
-import time
-
-from model.model_onnx import *
-from utils.img_util import *
-from config.config import *
-from milvus_tool.local_milvus import *
-from config.config import *
-from pymilvus import (
-    connections,
-    utility,
-    FieldSchema,
-    CollectionSchema,
-    DataType,
-    Collection,
-    db,
-
-)
-
-from model.model_onnx import Face_Onnx
-from utils.img_util import *
-from milvus_tool.local_milvus import *
-from utils.frame_util import *
-from utils.face_helper import *
-
-import av
-import os
-import shutil
-
-import cv2
-import numpy as np
 import logging
+import os.path
+
+from config.config import *
+from milvus_tool.local_milvus import *
+from model.model_onnx import Face_Onnx
+from utils.frame_util import *
+from utils.img_util import *
 
 
 class UniqueGenerator:
@@ -347,7 +321,7 @@ def search_face_image(model: Face_Onnx, collection, imgs,
         }
     limit = 16383 if limit > 16383 else limit
     search_res = collection.search(embeddings, 'embedding', search_params,
-                                   limit=limit, output_fields=['object_id', 'hdfs_path'], round_decimal=4)
+                                   limit=limit, output_fields=['object_id', 'hdfs_path', 'quality_score'], round_decimal=4)
     result = []
     for one in search_res:
         _result = []
@@ -359,7 +333,8 @@ def search_face_image(model: Face_Onnx, collection, imgs,
                     'id': single.entity.id,
                     'object_id': single.entity.object_id,
                     'score': single.score,
-                    'hdfs_path': single.entity.hdfs_path
+                    'hdfs_path': single.entity.hdfs_path,
+                    'quality_score': single.entity.quality_score
 
                 }
                 # get_search_result(single.id, single.entity.user_id, single.score)
@@ -404,3 +379,5 @@ def get_face_quality_single_img(model: Face_Onnx, image_path):
     img = cv_imread(image_path)
     score = model.tface.forward(img)
     return score
+
+

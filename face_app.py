@@ -1,15 +1,11 @@
-from flask import Flask, request, jsonify
-from utils.frame_util import *
 import os.path
 import time
 
-from model.model_onnx import *
+from flask import Flask, request, jsonify
+
 from service.core_service import *
-from service import core_service
+from service import core_service, main_avatar_service
 from utils.img_util import *
-from config.config import *
-from milvus_tool import local_milvus
-from milvus_tool.local_milvus import *
 from config.config import *
 from pymilvus import (
     connections,
@@ -18,7 +14,6 @@ from pymilvus import (
     CollectionSchema,
     DataType,
     Collection,
-    db,
 
 )
 import traceback
@@ -26,7 +21,6 @@ import traceback
 import uuid
 import hashlib
 import logging
-import subprocess
 
 
 class UniqueGenerator:
@@ -74,7 +68,8 @@ face_model = Face_Onnx(conf['model'], gpu_id=0)
 
 logger.info("Milvus 配置信息： " + str(conf['milvus']))
 
-connections.connect("default", host=milvus_conf["host"], port=milvus_conf["port"])
+connections.connect("default", host=milvus_conf["host"], port=milvus_conf["port"], user=milvus_conf["user"],
+                    password=milvus_conf["password"])
 
 image_faces_v1_name = face_app_conf["image_face_collection"]
 
@@ -92,8 +87,6 @@ image_faces_fields = [
 image_faces_schema = CollectionSchema(image_faces_fields, "image_faces_v1 is the simplest demo to introduce the APIs")
 image_faces_v1 = Collection(image_faces_v1_name, image_faces_schema)
 
-
-
 # 主头像二级人像库
 # 人像库索引
 main_avatar_fields = [
@@ -101,7 +94,8 @@ main_avatar_fields = [
     FieldSchema(name="object_id", dtype=DataType.VARCHAR, max_length=64),
     FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=512),
     FieldSchema(name="hdfs_path", dtype=DataType.VARCHAR, max_length=256),
-    FieldSchema(name="quality_score", dtype=DataType.FLOAT, max_length=256)
+    FieldSchema(name="quality_score", dtype=DataType.FLOAT, max_length=256),
+    FieldSchema(name="recognition_state", dtype=DataType.VARCHAR, max_length=64),
 
 ]
 main_avatar_schema = CollectionSchema(main_avatar_fields, "image_faces_v1 is the simplest demo to introduce the APIs")
@@ -185,7 +179,7 @@ def face_vectorization():
         faces_paths = core_service.save_face_to_disk(key_frames_info_list, key_faces_path, unique_filename)
         logger.info(f"Wrote {face_num} faces to disk in {time.time() - start_time:.2f} seconds")
 
-        logger.info("filepahts:" + str(faces_paths))
+        logger.info("filepath:" + str(faces_paths))
         # Extract facial embeddings from faces
         core_service.get_face_embeddings(face_model, faces_paths, aligned=False, enhance=False, confidence=0.99,
                                          merge=False)
@@ -208,7 +202,7 @@ def face_vectorization():
                 face_info['hdfs_path'] = hdfs_file
                 entities[3].append(hdfs_file)
                 entities[4].append(face_score)
-                face_info['quality_score'] = str(face_score)
+                face_info['quality_score'] = str(float(face_score))
                 # search_params = {
                 #     "metric_type": "IP",
                 #     "ignore_growing": False,
@@ -256,7 +250,7 @@ def face_vectorization():
         result["code"] = -100
         logger.error("face_vectorization error", e)
 
-    return result
+    return jsonify(result)
 
 
 @app.route('/api/ability/face_predict', methods=['POST'])
@@ -281,7 +275,6 @@ def face_predict():
     logger.info("page_size:" + str(page_size))
 
     offset = (int(page_num) - 1) * int(page_size)
-
 
     if file:
         uuid_filename = generator.generate_unique_value()
@@ -371,12 +364,15 @@ def main_face_predict():
 
 @app.route('/api/ability/face_quality', methods=['POST'])
 def face_quality():
+    """
+    人脸质量检测
+    :return:
+    """
     result = {
         "code": 0,
         "msg": "success",
     }
     file = request.files['file']  # Assuming the file input field is named 'file'
-
 
     try:
 
@@ -411,12 +407,13 @@ def face_quality():
         logger.error("face_quality error", e)
     return jsonify(result)
 
+
 @app.route('/api/ability/determineface', methods=['POST'])
-def determineface():
+def determine_face():
     result = {
         "code": 0,
         'face_found_in_image': True,
-        "error_messag": "success"
+        "error_message": "success"
     }
     file = request.files['file']  # Assuming the file input field is named 'file'
     if file:
@@ -462,143 +459,183 @@ def compute_sha256():
     return jsonify(result)
 
 
-"""
-插入主头像到二级索引主人像库
-"""
 @app.route('/api/ability/insert_main_avatar', methods=['POST'])
 def insert_main_avatar():
+    """
+    插入主人像库
+    :rtype: result
+    """
+
     result = {
         "code": 0,
         "msg": "success",
     }
-    file = request.files['file']  # Assuming the file input field is named 'file'
-
-    object_id = request.form.get('objectId')
-    if object_id is None:
-        result["code"] = -1
-        result["msg"] = "objectId is None"
-        return jsonify(result)
-
-    hdfs_path = request.form.get('hdfsPath')
-    if hdfs_path is None:
-        result["code"] = -1
-        result["msg"] = "hdfsPath is None"
-        return jsonify(result)
+    # 验证参数
+    validate_result = main_avatar_service.validate_parameter(request)
+    if validate_result["code"] < 0:
+        return jsonify(validate_result)
 
     score = request.form.get('score')
     if score is None:
         score = 0.4
 
+    # 验证图片是否符合要求
+    avatar_image = cv_imread(request.files['file'])
+
+    validate_image_result = main_avatar_service.validate_image(avatar_image, face_model)
+    if not validate_image_result["validate"]:
+        result["code"] = -1
+        result["msg"] = validate_image_result["message"]
+        return jsonify(result)
+
+    # 批量检索人脸图片， 每张人脸图片只能有一张人脸
     search_params = {
         "metric_type": "IP",
         "ignore_growing": False,
         "params": {"nprobe": 10}
     }
-
-    if file:
-        uuid_filename = generator.generate_unique_value()
-        print("uuid_filename")
-        print(uuid_filename)
-
-        dir_path = face_predict_dir + uuid_filename + ".jpg"
-        file.save(dir_path)  # Replace with the path where you want to save the file
-
-        img1 = cv_imread(dir_path)
-        # 批量检索人脸图片， 每张人脸图片只能有一张人脸
-        imgs = [img1]
-        start = time.time()
-        res = core_service.search_face_image(face_model, main_avatar_v1, imgs,
-                                             enhance=False, score=float(score), limit=10,
-                                             search_params=search_params)
-        print('主头像: ' + str(res))
-        if len(res[0]) > 0:
-            result["code"] = -1
-            result["msg"] = "主头像已存在"
-            return jsonify(result)
-
-        embedding = face_model.turn2embeddings(img1, enhance=False)
-        if len(embedding) == 0:
-            result["code"] = -1
-            result["msg"] = "No face found"
-            return jsonify(result)
-
-        entities = [[], [], [], []]
-        entities[0].append(uuid_filename)
-        entities[1].append(object_id)
-        entities[2].append(embedding[0])
-        entities[3].append(hdfs_path)
-        main_avator_res = main_avatar_v1.insert(entities)
-
-        print('插入结果耗时: ' + str(time.time() - start))
-        print("搜索结果: ")
-        print(main_avator_res)
-
-        result["uuidFilename"] = uuid_filename
-        result['res'] = "插入成功"
-    else:
+    start = time.time()
+    # 检索主人像， 看是否存在相同的主头像
+    res = core_service.search_face_image(face_model, main_avatar_v1, [avatar_image],
+                                         enhance=False, score=float(score), limit=10,
+                                         search_params=search_params)
+    object_id = request.form.get('objectId')
+    hdfs_path = request.form.get('hdfsPath')
+    logger.info('主头像: ' + str(res))
+    if len(res[0]) > 0:
         result["code"] = -1
-        result["msg"] = "File uploaded Failure!"
+        result["msg"] = "主头像已存在"
+        logger.info(f"主头像已存在 {object_id}, HDFS_PATH: {hdfs_path}")
+        return jsonify(result)
+
+    avatar_align_face = face_model.extract_face(avatar_image, enhance=False,
+                                                confidence=0.99)
+    face_score = face_model.tface.forward(avatar_align_face[0])
+
+    entities = [[], [], [], [], [], []]
+
+    entities[0].append(object_id)
+    entities[1].append(object_id)
+
+    embedding = face_model.turn2embeddings(avatar_image, enhance=False, aligned=False,
+                                           confidence=0.99)
+    entities[2].append(core_service.squeeze_faces(embedding)[0])
+    entities[3].append(hdfs_path)
+    entities[4].append(face_score)
+    entities[5].append("identification")
+
+    main_avatar_res = main_avatar_v1.insert(entities)
+
+    logger.info('插入结果耗时: ' + str(time.time() - start))
+    logger.info("主人像插入结果: " + str(main_avatar_res))
+
+    result["objectId"] = object_id
+    result['msg'] = "插入成功"
+    result['qualityScore'] = str(float(face_score))
     return jsonify(result)
 
 
 """
 更新主头像到二级索引主人像库
 """
+
+
 @app.route('/api/ability/update_main_avatar', methods=['POST'])
 def update_main_avatar():
     result = {
         "code": 0,
         "msg": "success",
     }
-    file = request.files['file']  # Assuming the file input field is named 'file'
+    # 验证参数
+    validate_result = main_avatar_service.validate_parameter(request)
+    if validate_result["code"] < 0:
+        return jsonify(validate_result)
 
-    object_id = request.form.get('objectId')
-    if object_id is None:
-        result["code"] = -1
-        result["msg"] = "objectId is None"
-        return jsonify(result)
+    score = request.form.get('score')
+    if score is None:
+        score = 0.4
 
-    hdfs_path = request.form.get('hdfsPath')
-    if hdfs_path is None:
-        result["code"] = -1
-        result["msg"] = "hdfsPath is None"
-        return jsonify(result)
-
-    uuid_filename = request.form.get('uuidFilename')
-    if uuid_filename is None:
-        result["code"] = -1
-        result["msg"] = "uuidFilename is None"
-        return jsonify(result)
-
-    if file:
-        print("uuid_filename")
-        print(uuid_filename)
-
-        dir_path = face_predict_dir + uuid_filename + ".jpg"
-        file.save(dir_path)  # Replace with the path where you want to save the file
-
-        img1 = cv_imread(dir_path)
-        # 批量检索人脸图片， 每张人脸图片只能有一张人脸
-        start = time.time()
-
-        embedding = face_model.turn2embeddings(img1, enhance=False)
-
-        entities = [[], [], [], []]
-        entities[0].append(uuid_filename)
-        entities[1].append(object_id)
-        entities[2].append(embedding[0])
-        entities[3].append(hdfs_path)
-        main_avatar_v1.upsert(entities)
-
-        print('插入结果耗时: ' + str(time.time() - start))
-        print("搜索结果: ")
-        result['uuidFilename'] = uuid_filename
-        result['res'] = "更新成功 向量ID" + uuid_filename
+    force = request.form.get('force')
+    if force is None:
+        force = False
     else:
+        if force == 'true':
+            force = True
+        else:
+            force = False
+
+
+    # 验证图片是否符合要求
+    avatar_image = cv_imread(request.files['file'])
+
+    validate_image_result = main_avatar_service.validate_image(avatar_image, face_model)
+    if not validate_image_result["validate"]:
         result["code"] = -1
-        result["msg"] = "File uploaded Failure!" + uuid_filename
+        result["msg"] = validate_image_result["message"]
+        return jsonify(result)
+
+    # 批量检索人脸图片， 每张人脸图片只能有一张人脸
+    search_params = {
+        "metric_type": "IP",
+        "ignore_growing": False,
+        "params": {"nprobe": 10}
+    }
+    start = time.time()
+    # 检索主人像， 看是否存在相同的主头像
+    res = core_service.search_face_image(face_model, main_avatar_v1, [avatar_image],
+                                         enhance=False, score=float(score), limit=10,
+                                         search_params=search_params)
+    object_id = request.form.get('objectId')
+    hdfs_path = request.form.get('hdfsPath')
+    if len(res[0]) == 0:
+        result["code"] = -1
+        result["msg"] = "该人员主头像不存在，无法更新"
+        logger.info(f"该人员主头像不存在，无法更新 {object_id}, HDFS_PATH: {hdfs_path}")
+        return jsonify(result)
+
+    logger.info(f"已存在的主头像信息 {res[0]}")
+
+    exist_object_id = res[0][0]['object_id']
+    if exist_object_id != object_id:
+        result["code"] = -1
+        result["msg"] = "该人员主头像已存在，但是人员ID不一致，无法更新"
+        logger.info(f"该人员主头像已存在，但是人员ID不一致，无法更新 {object_id}, HDFS_PATH: {hdfs_path}")
+        return jsonify(result)
+
+    avatar_align_face = face_model.extract_face(avatar_image, enhance=False,
+                                                confidence=0.99)
+    face_score = face_model.tface.forward(avatar_align_face[0])
+    logger.info(f"{object_id} 人员新头像质量得分 {face_score}")
+
+    # 判断是否需要更新
+    if not force and float(face_score) < float(res[0][0]['quality_score']):
+        result["code"] = -1
+        result["msg"] = "该人员主头像质量得分低于已存在主头像，无法更新"
+        logger.info(f"该人员主头像质量得分低于已存在主头像，无法更新 {object_id}, HDFS_PATH: {hdfs_path}")
+        return jsonify(result)
+
+    entities = [[], [], [], [], [], []]
+
+    entities[0].append(object_id)
+    entities[1].append(object_id)
+
+    embedding = face_model.turn2embeddings(avatar_image, enhance=False, aligned=False,
+                                           confidence=0.99)
+    entities[2].append(core_service.squeeze_faces(embedding)[0])
+    entities[3].append(hdfs_path)
+    entities[4].append(face_score)
+    entities[5].append("identification")
+
+    main_avatar_res = main_avatar_v1.upsert(entities)
+
+    logger.info('更新结果耗时: ' + str(time.time() - start))
+    logger.info("主人像更新结果: " + str(main_avatar_res))
+
+    result["objectId"] = object_id
+    result['msg'] = "更新成功"
+    result['qualityScore'] = str(float(face_score))
     return jsonify(result)
 
 
 if __name__ == '__main__':
-    app.run(host='192.168.100.19', port=5010)
+    app.run(host='0.0.0.0', port=5010)
