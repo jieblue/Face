@@ -1,10 +1,13 @@
 import os.path
 import time
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 
+from entity.file_entity import VideoFile
+from entity.union_result import UnionResult
 from service.core_service import *
-from service import core_service, main_avatar_service
+from service import core_service, main_avatar_service, video_service_v3
+from utils import log_util
 from utils.img_util import *
 from config.config import *
 from pymilvus import (
@@ -37,31 +40,13 @@ class UniqueGenerator:
 
 # 获取config信息
 conf = get_config()
-
-# Create a logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
 # 获取face_app的配置
 face_app_conf = conf['face_app']
 # 获取Milvus的配置
 milvus_conf = conf['milvus']
-log_file = face_app_conf['log_file']
 
-# Define the log file and format
-log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-
-# Create a file handler and set the log format
-file_handler = logging.FileHandler(log_file)
-file_handler.setFormatter(log_format)
-
-# Create a stream handler to print log messages to the console
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(log_format)
-
-# Add both handlers to the logger
-logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
+# Create a logger
+logger = log_util.get_logger(__name__)
 
 # 加载人脸模型 加载模型会耗时比较长
 face_model = Face_Onnx(conf['model'], gpu_id=0)
@@ -203,23 +188,23 @@ def face_vectorization():
                 entities[3].append(hdfs_file)
                 entities[4].append(face_score)
                 face_info['quality_score'] = str(float(face_score))
-                # search_params = {
-                #     "metric_type": "IP",
-                #     "ignore_growing": False,
-                #     "params": {"nprobe": 50}
-                # }
-                # # 查找看是否存在主头像索引中
-                # res = core_service.search_face_image(face_model, main_avatar_v1, [face_info['face_file_path']],
-                #                                      enhance=False, score=float(0.5), limit=int(10),
-                #                                      search_params=search_params)
-                # if len(res[0]) > 0:
-                #     main_avatar_id = res[0][0]['id']
-                #     # 主头像存在， 讲该头像关联到该次人员ID中
-                #     logger.info(f"主头像库中存在 ID {main_avatar_id}")
-                #     entities[1].append(res[0][0]['id'])
-                # else:
-                #     logger.info(f"主头像库中不存在 ID {face_info['face_embedding_id']}")
-                #     # 判断是否该主头像的得分是否高于现有主头像的得分
+                search_params = {
+                    "metric_type": "IP",
+                    "ignore_growing": False,
+                    "params": {"nprobe": 50}
+                }
+                # 查找看是否存在主头像索引中
+                res = core_service.search_face_image(face_model, main_avatar_v1, [face_info['face_file_path']],
+                                                     enhance=False, score=float(0.5), limit=int(10),
+                                                     search_params=search_params)
+                if len(res[0]) > 0:
+                    main_avatar_id = res[0][0]['id']
+                    # 主头像存在， 讲该头像关联到该次人员ID中
+                    logger.info(f"主头像库中存在 ID {main_avatar_id}")
+                    entities[1].append(res[0][0]['id'])
+                else:
+                    logger.info(f"主头像库中不存在 ID {face_info['face_embedding_id']}")
+                    # 判断是否该主头像的得分是否高于现有主头像的得分
                 entities[1].append('unidentification')
                 face_result_list.append(face_info)
 
@@ -298,6 +283,7 @@ def face_predict():
         res = core_service.search_face_image(face_model, image_faces_v1, imgs,
                                              enhance=False, score=float(score), limit=int(page_size),
                                              search_params=search_params)
+
         logger.info('搜索耗时: ' + str(time.time() - start))
         logger.info("搜索结果: ")
         logger.info(res)
@@ -314,7 +300,7 @@ def main_face_predict():
         "code": 0,
         "msg": "success",
     }
-    file = request.files['file']  # Assuming the file input field is named 'file'
+    start = time.time()
     score = request.form.get('score')
     if score is None:
         score = 0.4
@@ -325,40 +311,49 @@ def main_face_predict():
     page_size = request.form.get('pageSize')
     if page_size is None:
         page_size = 10
+
+    recognition_state = request.form.get('recognitionState')
+    if recognition_state is None:
+        recognition_state = 'unidentification'
+
     logger.info("score:" + str(score))
     logger.info("page_num:" + str(page_num))
     logger.info("page_size:" + str(page_size))
+    logger.info("recognition_state:" + str(recognition_state))
 
     offset = (int(page_num) - 1) * int(page_size)
-    search_params = {
-        "metric_type": "IP",
-        "offset": offset,
-        "ignore_growing": False,
-        "params": {"nprobe": 50}
-    }
+    # search_params = {
+    #     "metric_type": "IP",
+    #     "offset": offset,
+    #     "ignore_growing": False,
+    #     "params": {"nprobe": 50}
+    # }
 
-    if file:
-        uuid_filename = generator.generate_unique_value()
-        logger.info("uuid_filename: " + uuid_filename)
+    search_res = main_avatar_v1.query(
+        expr="recognition_state == '" + recognition_state + "'",
+        offset=offset,
+        limit=page_size,
+        output_fields=["object_id", "hdfs_path", "quality_score", "recognition_state"]
+    )
 
-        dir_path = face_predict_dir + uuid_filename + ".jpg"
-        file.save(dir_path)  # Replace with the path where you want to save the file
+    search_result = []
+    for single in search_res:
+        tmp = {
+            # 'primary_key': single.id,
+            'id': single['id'],
+            'object_id': single['object_id'],
+            'hdfs_path': single['hdfs_path'],
+            'quality_score': str(single['quality_score']),
+            'recognition_state': single['recognition_state'],
 
-        img1 = cv_imread(dir_path)
+        }
+        # get_search_result(single.id, single.entity.user_id, single.score)
+        search_result.append(tmp)
 
-        # 批量检索人脸图片， 每张人脸图片只能有一张人脸
-        imgs = [img1]
-        start = time.time()
-        res = core_service.search_face_image(face_model, main_avatar_v1, imgs,
-                                             enhance=False, score=float(score), limit=int(page_size),
-                                             search_params=search_params)
-        logger.info('搜索耗时: ' + str(time.time() - start))
-        logger.info("搜索结果: ")
-        logger.info(res)
-        result['res'] = res
-    else:
-        result["code"] = -1
-        result["msg"] = "File uploaded Failure!"
+    logger.info('搜索耗时: ' + str(time.time() - start))
+    logger.info("搜索结果: ")
+    logger.info(search_res)
+    result['res'] = search_result
     return jsonify(result)
 
 
@@ -564,7 +559,6 @@ def update_main_avatar():
         else:
             force = False
 
-
     # 验证图片是否符合要求
     avatar_image = cv_imread(request.files['file'])
 
@@ -635,6 +629,33 @@ def update_main_avatar():
     result['msg'] = "更新成功"
     result['qualityScore'] = str(float(face_score))
     return jsonify(result)
+
+
+# =========== V3版本重构造 ==================
+@app.route('/api/ability/v3/face_vectorization', methods=['POST'])
+def vectorization_v3() -> Response:
+    try:
+
+        json_data = request.get_json()
+        logger.info(f"face_vectorization json_data: {json_data}")
+        video_path = json_data["videoPath"]
+        video_id = json_data["videoId"]
+        video_name = json_data["videoName"]
+        video_file = VideoFile(unique_name=video_name, file_path=video_path, video_id=video_id)
+
+        key_frame_list, face_frame_list = video_service_v3.process_video_file(video_file)
+        data = {
+            "key_frame_list": key_frame_list,
+            "face_frame_list": face_frame_list
+        }
+        result = UnionResult(code=0, msg="success", data=data)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error("face_vectorization error", e)
+        # handle the exception
+        result = UnionResult(code=-100, msg="vectorization_v3 error")
+        return jsonify(result)
 
 
 if __name__ == '__main__':
