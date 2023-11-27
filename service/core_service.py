@@ -334,7 +334,7 @@ def search_face_image(model: Face_Onnx, collection, imgs,
                     'object_id': single.entity.object_id,
                     'score': single.score,
                     'hdfs_path': single.entity.hdfs_path,
-                    'quality_score': single.entity.quality_score
+                    'quality_score': str(single.entity.quality_score)
 
                 }
                 # get_search_result(single.id, single.entity.user_id, single.score)
