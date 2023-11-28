@@ -67,7 +67,10 @@ image_faces_fields = [
     FieldSchema(name="object_id", dtype=DataType.VARCHAR, max_length=64),
     FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=512),
     FieldSchema(name="hdfs_path", dtype=DataType.VARCHAR, max_length=256),
-    FieldSchema(name="quality_score", dtype=DataType.FLOAT, max_length=256)
+    FieldSchema(name="quality_score", dtype=DataType.FLOAT, max_length=256),
+    FieldSchema(name="video_id_arr", dtype=DataType.VARCHAR, max_length=4096),
+    FieldSchema(name="earliest_video_id", dtype=DataType.FLOAT, max_length=512),
+    FieldSchema(name="file_name", dtype=DataType.VARCHAR, max_length=64),
 ]
 image_faces_schema = CollectionSchema(image_faces_fields, "image_faces_v1 is the simplest demo to introduce the APIs")
 image_faces_v1 = Collection(image_faces_v1_name, image_faces_schema)
