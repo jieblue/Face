@@ -54,13 +54,13 @@ def translate_face_embedding(face_frame_list: List[FaceKeyFrame]) -> List[FaceKe
         # 压缩向量
         face_frame_embedding = squeeze_faces(original_embedding)[0]
 
-        # 人员ID， HDFS path， 关联的视频组， 在向量插入的时候进行关联
+        # 人员ID在主人像选举的时候进行添加， HDFS path， 关联的视频组， 在向量插入的时候进行关联
         face_key_frame_embedding = FaceKeyFrameEmbedding(face_frame_info.key_id,
                                                          None,
                                                          score,
                                                          face_frame_embedding,
                                                          None,
-                                                         None,
+                                                         face_frame_info.video_id,
                                                          face_frame_info.video_id,
                                                          file_name=face_frame_info.file_name)
 

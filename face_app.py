@@ -68,9 +68,9 @@ image_faces_fields = [
     FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=512),
     FieldSchema(name="hdfs_path", dtype=DataType.VARCHAR, max_length=256),
     FieldSchema(name="quality_score", dtype=DataType.FLOAT, max_length=256),
-    FieldSchema(name="video_id_arr", dtype=DataType.VARCHAR, max_length=4096),
-    FieldSchema(name="earliest_video_id", dtype=DataType.FLOAT, max_length=512),
-    FieldSchema(name="file_name", dtype=DataType.VARCHAR, max_length=64),
+    # FieldSchema(name="video_id_arr", dtype=DataType.VARCHAR, max_length=4096),
+    # FieldSchema(name="earliest_video_id", dtype=DataType.FLOAT, max_length=512),
+    # FieldSchema(name="file_name", dtype=DataType.VARCHAR, max_length=64),
 ]
 image_faces_schema = CollectionSchema(image_faces_fields, "image_faces_v1 is the simplest demo to introduce the APIs")
 image_faces_v1 = Collection(image_faces_v1_name, image_faces_schema)
@@ -643,21 +643,21 @@ def vectorization_v3() -> Response:
         logger.info(f"face_vectorization json_data: {json_data}")
         video_path = json_data["videoPath"]
         video_id = json_data["videoId"]
-        video_name = json_data["videoName"]
-        video_file = VideoFile(unique_name=video_name, file_path=video_path, video_id=video_id)
+        file_name = json_data["fileName"]
+        video_file = VideoFile(file_name=file_name, file_path=video_path, video_id=video_id)
 
-        key_frame_list, face_frame_list = video_service_v3.process_video_file(video_file)
+        key_frame_list, face_frame_embedding_list = video_service_v3.process_video_file(video_file)
         data = {
             "key_frame_list": key_frame_list,
-            "face_frame_list": face_frame_list
+            "face_frame_embedding_list": face_frame_embedding_list
         }
-        result = UnionResult(code=0, msg="success", data=data)
+        result = UnionResult(code=0, msg="face_vectorization success", data=data)
         return jsonify(result)
 
     except Exception as e:
         logger.error("face_vectorization error", e)
         # handle the exception
-        result = UnionResult(code=-100, msg="vectorization_v3 error")
+        result = UnionResult(code=-100, msg="vectorization_v3 error", data=None)
         return jsonify(result)
 
 
