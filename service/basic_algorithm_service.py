@@ -13,21 +13,21 @@ logger = log_util.get_logger(__name__)
 
 
 def extract_key_frame_list(video_file: VideoFile) -> List[KeyFrame]:
-    container = av.open(video_file.file_path)
+    # container = av.open(video_file.file_path)
 
     result = []
-    # Signal that we only want to look at keyframes.
-    stream = container.streams.video[0]
-
-    stream.codec_context.skip_frame = 'NONKEY'
-    frames = container.decode(stream)
-    frame_num = 1
-    for frame in frames:
-        timestamp = round(frame.pts * stream.time_base)
-        np_frame = av_frame2np(frame)
-        key_frame = KeyFrame(np_frame, timestamp, frame_num, video_file.file_name)
-        result.append(key_frame)
-        frame_num = frame_num + 1
+    # # Signal that we only want to look at keyframes.
+    # stream = container.streams.video[0]
+    #
+    # stream.codec_context.skip_frame = 'NONKEY'
+    # frames = container.decode(stream)
+    # frame_num = 1
+    # for frame in frames:
+    #     timestamp = round(frame.pts * stream.time_base)
+    #     np_frame = av_frame2np(frame)
+    #     key_frame = KeyFrame(file_name=video_file.file_name,video_id=video_file.video_id, frame_num, video_file.file_name, video_file.video_id)
+    #     result.append(key_frame)
+    #     frame_num = frame_num + 1
 
     return result
 

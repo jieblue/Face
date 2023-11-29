@@ -1,6 +1,15 @@
+# 获取config信息
+from config.config import get_config
+
+conf = get_config()
+# 获取face_app的配置
+face_app_conf = conf['face_app']
+hdfs_prefix = face_app_conf['hdfs_prefix']
+
+
 class KeyFrame:
 
-    def __init__(self, file_name, video_id, frame_num, timestamp, frame):
+    def __init__(self, *, file_name, video_id, frame_num, timestamp, frame):
         """
         :param file_name: 文件名
         :param frame_num: 视频关键帧的序号
@@ -39,3 +48,6 @@ class FaceKeyFrame:
 
     def generate_key_id(self):
         return self.file_name + "_" + str(self.frame_num) + "_" + str(self.timestamp) + "_" + str(self.face_num)
+
+    def generate_hdfs_path(self):
+        return hdfs_prefix + "/" + self.file_name + "/" + str(self.key_id) + ".jpg"

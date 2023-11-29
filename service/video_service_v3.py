@@ -39,4 +39,4 @@ def process_video_file(video_file: VideoFile):
     face_save_result = file_service.save_face_to_disk(face_frame_list)
     logger.info(f"Face frame list saved. {len(face_save_result)}")
 
-    return key_frame_list, face_frame_list
+    return key_frame_list, face_frame_embedding_list
