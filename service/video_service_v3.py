@@ -30,13 +30,22 @@ def process_video_file(video_file: VideoFile):
 
     # 将人脸关键帧特征集合存储到Milvus中
     face_insert_result = milvus_service.insert_face_embedding(face_frame_embedding_list)
-    logger.info(f"Face frame embedding list inserted. {len(face_insert_result)}")
+    logger.info(f"Face frame embedding list inserted. {face_insert_result}")
 
     # 将视频关键帧特征集合存储到本地路径
     # frame_save_result = file_service.save_frame_to_disk(key_frame_list)
 
     # 将人脸关键帧特征集合存储到本地路径
     face_save_result = file_service.save_face_to_disk(face_frame_list)
-    logger.info(f"Face frame list saved. {len(face_save_result)}")
+    logger.info(f"Face frame list saved. {face_save_result}")
 
-    return key_frame_list, face_frame_embedding_list
+    key_frame_list_result = []
+    # 删除多余的字段
+    for key_frame in key_frame_list:
+        key_frame_list_result.append(key_frame.to_dict())
+
+    face_frame_list_result = []
+    for face_embedding in face_frame_embedding_list:
+        face_frame_list_result.append(face_embedding.to_dict())
+
+    return key_frame_list_result, face_frame_list_result

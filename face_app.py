@@ -42,67 +42,12 @@ class UniqueGenerator:
 conf = get_config()
 # 获取face_app的配置
 face_app_conf = conf['face_app']
-# 获取Milvus的配置
-milvus_conf = conf['milvus']
 
 # Create a logger
 logger = log_util.get_logger(__name__)
 
 # 加载人脸模型 加载模型会耗时比较长
 face_model = Face_Onnx(conf['model'], gpu_id=0)
-
-logger.info("Milvus 配置信息： " + str(conf['milvus']))
-
-connections.connect("default", host=milvus_conf["host"], port=milvus_conf["port"], user=milvus_conf["user"],
-                    password=milvus_conf["password"])
-
-image_faces_v1_name = face_app_conf["image_face_collection"]
-
-has = utility.has_collection(image_faces_v1_name)
-logger.info(f"Milvus collection {image_faces_v1_name} exist in Milvus: {has}")
-
-# 人像库索引
-image_faces_fields = [
-    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=128),
-    FieldSchema(name="object_id", dtype=DataType.VARCHAR, max_length=64),
-    FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=512),
-    FieldSchema(name="hdfs_path", dtype=DataType.VARCHAR, max_length=256),
-    FieldSchema(name="quality_score", dtype=DataType.FLOAT, max_length=256),
-    # FieldSchema(name="video_id_arr", dtype=DataType.VARCHAR, max_length=4096),
-    # FieldSchema(name="earliest_video_id", dtype=DataType.FLOAT, max_length=512),
-    # FieldSchema(name="file_name", dtype=DataType.VARCHAR, max_length=64),
-]
-image_faces_schema = CollectionSchema(image_faces_fields, "image_faces_v1 is the simplest demo to introduce the APIs")
-image_faces_v1 = Collection(image_faces_v1_name, image_faces_schema)
-
-# 主头像二级人像库
-# 人像库索引
-main_avatar_fields = [
-    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=128),
-    FieldSchema(name="object_id", dtype=DataType.VARCHAR, max_length=64),
-    FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=512),
-    FieldSchema(name="hdfs_path", dtype=DataType.VARCHAR, max_length=256),
-    FieldSchema(name="quality_score", dtype=DataType.FLOAT, max_length=256),
-    FieldSchema(name="recognition_state", dtype=DataType.VARCHAR, max_length=64),
-
-]
-main_avatar_schema = CollectionSchema(main_avatar_fields, "image_faces_v1 is the simplest demo to introduce the APIs")
-main_avatar_v1 = Collection(face_app_conf["main_avatar_collection"], main_avatar_schema)
-
-index = {
-    "index_type": 'IVF_SQ8',
-    "metric_type": "IP",
-    "params": {"nlist": 100},
-}
-
-image_faces_v1.create_index("embedding", index)
-main_avatar_v1.create_index("embedding", index)
-logger.info(f"Index {index} created successfully")
-
-image_faces_v1.load()
-main_avatar_v1.load()
-
-logger.info(f"Collection {image_faces_v1_name} loaded successfully")
 
 key_frames_path = './keyframes'
 key_faces_path = './keyframes_faces'
@@ -644,6 +589,7 @@ def vectorization_v3() -> Response:
         video_path = json_data["videoPath"]
         video_id = json_data["videoId"]
         file_name = json_data["fileName"]
+        file_name = video_id
         video_file = VideoFile(file_name=file_name, file_path=video_path, video_id=video_id)
 
         key_frame_list, face_frame_embedding_list = video_service_v3.process_video_file(video_file)
@@ -652,13 +598,23 @@ def vectorization_v3() -> Response:
             "face_frame_embedding_list": face_frame_embedding_list
         }
         result = UnionResult(code=0, msg="face_vectorization success", data=data)
-        return jsonify(result)
+        json_result = {
+            "code": result.code,
+            "msg": result.msg,
+            "data": result.data
+        }
+        return jsonify(json_result)
 
     except Exception as e:
         logger.error("face_vectorization error", e)
         # handle the exception
         result = UnionResult(code=-100, msg="vectorization_v3 error", data=None)
-        return jsonify(result)
+        json_result = {
+            "code": result.code,
+            "msg": result.msg,
+            "data": result.data
+        }
+        return jsonify(json_result)
 
 
 if __name__ == '__main__':

@@ -20,6 +20,17 @@ class FaceKeyFrameEmbedding:
         self.earliest_video_id = earliest_video_id
         self.file_name = file_name
 
+    def to_dict(self):
+        return {
+            "key_id": self.key_id,
+            "object_id": self.object_id,
+            "quantity_score": str(float(self.quantity_score)),
+            "hdfs_path": self.hdfs_path,
+            "video_id_arr": self.video_id_arr,
+            "earliest_video_id": self.earliest_video_id,
+            "file_name": self.file_name
+        }
+
 
 class MainFaceKeyFrameEmbedding:
 

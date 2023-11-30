@@ -26,9 +26,9 @@ def extract_face_list(key_frame_list: List[KeyFrame]) -> List[FaceKeyFrame]:
                                             confidence=0.99)
         face_num = 1
         for face_frame in face_list:
-            face_key_frame = FaceKeyFrame(key_frame.file_name, key_frame.video_id,
-                                          key_frame.frame_num,
-                                          key_frame.timestamp, face_num, face_frame)
+            face_key_frame = FaceKeyFrame(file_name=key_frame.file_name, video_id=key_frame.video_id,
+                                          frame_num=key_frame.frame_num,
+                                          timestamp=key_frame.timestamp, face_num=face_num, face_frame=face_frame)
             face_num = face_num + 1
             face_key_frame_list.append(face_key_frame)
 
@@ -59,7 +59,7 @@ def translate_face_embedding(face_frame_list: List[FaceKeyFrame]) -> List[FaceKe
                                                          None,
                                                          score,
                                                          face_frame_embedding,
-                                                         None,
+                                                         face_frame_info.hdfs_path,
                                                          face_frame_info.video_id,
                                                          face_frame_info.video_id,
                                                          file_name=face_frame_info.file_name)
