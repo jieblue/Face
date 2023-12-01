@@ -1,6 +1,7 @@
 class FaceKeyFrameEmbedding:
 
-    def __init__(self, key_id, object_id, quantity_score, embedding, hdfs_path, video_id_arr, earliest_video_id, file_name):
+    def __init__(self, *, key_id, object_id, quantity_score, embedding, hdfs_path, video_id_arr, earliest_video_id,
+                 file_name, frame_num, timestamp, face_num):
         """
         初始化
         :param key_id: 唯一主键ID
@@ -10,6 +11,10 @@ class FaceKeyFrameEmbedding:
         :param hdfs_path: HDFS上的绝对路径
         :param video_id_arr: 视频ID拼接的字符串， 逗号作为分隔符
         :param earliest_video_id: 最早插入到这个人脸的视频ID
+        :param file_name: 文件名
+        :param frame_num: 视频关键帧的序号
+        :param timestamp: 时间戳
+        :param face_num: 人脸序号
         """
         self.key_id = key_id
         self.object_id = object_id
@@ -19,6 +24,9 @@ class FaceKeyFrameEmbedding:
         self.video_id_arr = video_id_arr
         self.earliest_video_id = earliest_video_id
         self.file_name = file_name
+        self.frame_num = frame_num
+        self.timestamp = timestamp
+        self.face_num = face_num
 
     def to_dict(self):
         return {
@@ -28,13 +36,16 @@ class FaceKeyFrameEmbedding:
             "hdfs_path": self.hdfs_path,
             "video_id_arr": self.video_id_arr,
             "earliest_video_id": self.earliest_video_id,
-            "file_name": self.file_name
+            "file_name": self.file_name,
+            "frame_num": self.frame_num,
+            "timestamp": self.timestamp,
+            "face_num": self.face_num
         }
 
 
 class MainFaceKeyFrameEmbedding:
 
-    def __init__(self, key_id, object_id, quantity_score, embedding, hdfs_path, recognition_state):
+    def __init__(self, *, key_id, object_id, quantity_score, embedding=None, hdfs_path, recognition_state):
         """
         初始化
         :param key_id: 唯一主键ID

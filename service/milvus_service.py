@@ -13,6 +13,7 @@ from pymilvus import (
     Collection,
 
 )
+
 # 获取config信息
 conf = get_config()
 logger = log_util.get_logger(__name__)
@@ -73,47 +74,95 @@ main_avatar_v1.load()
 
 logger.info(f"Collection {image_faces_v1_name} loaded successfully")
 
-def search_main_face(face_frame_embedding) -> MainFaceKeyFrameEmbedding:
-    # TODO search main face
-    return MainFaceKeyFrameEmbedding(None, None, None, None, None, None)
+
+def search_main_face(face_frame_embedding: FaceKeyFrameEmbedding) -> MainFaceKeyFrameEmbedding:
+    search_params = {
+        "metric_type": "IP",
+        "ignore_growing": False,
+        "params": {"nprobe": 50}
+    }
+    limit = 1
+    limit = 16383 if limit > 16383 else limit
+    search_res = main_avatar_v1.search([face_frame_embedding.embedding], 'embedding', search_params,
+                                       limit=limit, output_fields=['object_id', 'hdfs_path', 'quality_score',
+                                                                   'recognition_state'], round_decimal=4)
+    if len(search_res) == 0:
+        return None
+    main_face_list = []
+    for one in search_res:
+        for single in one:
+            if single.score < 0.5:
+                continue
+            logger.info(f"Search single result: {single} and score is {single.score}")
+            main_face_info = MainFaceKeyFrameEmbedding(key_id=single.entity.id, object_id=single.entity.object_id,
+                                                       quantity_score=single.score,
+                                                       hdfs_path=single.entity.hdfs_path,
+                                                       recognition_state=single.entity.recognition_state)
+            main_face_list.append(main_face_info)
+    return main_face_list[0] if len(main_face_list) > 0 else None
 
 
 def insert_main_face(main_face_info: MainFaceKeyFrameEmbedding):
-    return None
+    entities = [[], [], [], [], [], []]
+    entities[0].append(main_face_info.key_id)
+    entities[1].append(str(main_face_info.object_id))
+    entities[2].append(main_face_info.embedding)
+    entities[3].append(str(main_face_info.hdfs_path))
+    entities[4].append(main_face_info.quantity_score)
+    entities[5].append(main_face_info.recognition_state)
+    res = main_avatar_v1.insert(entities)
+    logger.info(f"Insert main face {main_face_info.key_id} to Milvus. {res}")
+
+    return res
 
 
 def update_main_face(main_face_info: MainFaceKeyFrameEmbedding):
-    return None
+    entities = [[], [], [], [], [], []]
+    entities[0].append(main_face_info.key_id)
+    entities[1].append(str(main_face_info.object_id))
+    entities[2].append(main_face_info.embedding)
+    entities[3].append(str(main_face_info.hdfs_path))
+    entities[4].append(main_face_info.quantity_score)
+    entities[5].append(main_face_info.recognition_state)
+    res = main_avatar_v1.insert(entities)
+    logger.info(f"Update main face {main_face_info.key_id} to Milvus. {res}")
+
+    return res
 
 
 def main_face_election(face_frame_embedding_info):
-    # TODO 查找这次人员是否存在主头像， 不存在直接插入， 存在进行得分比较进行更新
-    # main_face_info = search_main_face(face_frame_embedding_info.embedding)
-    # if main_face_info is None:
-    #     main_face_info = MainFaceKeyFrameEmbedding(face_frame_embedding_info.key_id,
-    #                                                face_frame_embedding_info.key_id,
-    #                                                face_frame_embedding_info.video_id,
-    #                                                face_frame_embedding_info.frame_num,
-    #                                                face_frame_embedding_info.timestamp,
-    #                                                face_frame_embedding_info.face_num,
-    #                                                face_frame_embedding_info.embedding)
-    #     insert_result = insert_main_face(main_face_info)
-    #     logger.info(f"Insert main face {main_face_info.key_id} to Milvus. {insert_result}")
-    # else:
-    #     if main_face_info.quantity_score < face_frame_embedding_info.quantity_score:
-    #         main_face_info.quantity_score = face_frame_embedding_info.quantity_score
-    #         main_face_info.embedding = face_frame_embedding_info.embedding
-    #         main_face_info.hdfs_path = face_frame_embedding_info.hdfs_path
-    #         main_face_info.object_id = face_frame_embedding_info.key_id
-    #         update_result = update_main_face(main_face_info)
-    #         logger.info(f"Update main face {main_face_info.key_id} to Milvus. {update_result}")
-    pass
+    logger.info(f"Main face election for {face_frame_embedding_info.key_id}")
+    main_face_info = search_main_face(face_frame_embedding_info)
+    # 无法找到主人像的信息，并且质量得分大约0.4分才可选举为主人像
+    if main_face_info is None and float(face_frame_embedding_info.quantity_score) > 40:
+        main_face_info = MainFaceKeyFrameEmbedding(key_id=face_frame_embedding_info.key_id,
+                                                   object_id=face_frame_embedding_info.key_id,
+                                                   quantity_score=face_frame_embedding_info.quantity_score,
+                                                   embedding=face_frame_embedding_info.embedding,
+                                                   hdfs_path=face_frame_embedding_info.hdfs_path,
+                                                   recognition_state="unidentification")
+        insert_result = insert_main_face(main_face_info)
+        logger.info(f"Insert main face {main_face_info.key_id} to Milvus. {insert_result}")
+    elif main_face_info is not None and float(face_frame_embedding_info.quantity_score) > 40:
+        logger.info(f"Main face {main_face_info.key_id} found in Milvus. {main_face_info}")
+        if main_face_info.quantity_score < face_frame_embedding_info.quantity_score:
+            logger.info(f"Main face {main_face_info.key_id} quality score is lower than "
+                        f"{face_frame_embedding_info.key_id}")
+            main_face_info.quantity_score = face_frame_embedding_info.quantity_score
+            main_face_info.embedding = face_frame_embedding_info.embedding
+            main_face_info.hdfs_path = face_frame_embedding_info.hdfs_path
+            main_face_info.object_id = face_frame_embedding_info.key_id
+            update_result = update_main_face(main_face_info)
+            logger.info(f"Update main face {main_face_info.key_id} to Milvus. {update_result}")
+    else:
+        logger.info(f"Main face {face_frame_embedding_info.key_id} quality score is lower than 40")
 
 
 def insert_face_embedding(face_frame_embedding_list: List[FaceKeyFrameEmbedding]):
     entities = [[], [], [], [], [], [], [], []]
     for face_frame_embedding_info in face_frame_embedding_list:
-
+        # 主人像选举
+        main_face_election(face_frame_embedding_info)
         # 插入到人脸向量库里
         # 0 id, 1 object_id, 2 embedding, 3 hdfs_path 4 quantity_score, 5 video_id_arr, 6 earliest_video_id, 7 file_name
         entities[0].append(face_frame_embedding_info.key_id)
@@ -124,9 +173,6 @@ def insert_face_embedding(face_frame_embedding_list: List[FaceKeyFrameEmbedding]
         entities[5].append(face_frame_embedding_info.video_id_arr)
         entities[6].append(face_frame_embedding_info.earliest_video_id)
         entities[7].append(face_frame_embedding_info.file_name)
-
-        # TODO 主人像选举
-        # main_face_election(face_frame_embedding_info)
 
     res = image_faces_v1.insert(entities)
     if len(entities[0]) > 0:
