@@ -4,7 +4,7 @@
 #  user: root
 #  init: True # only working when init milvus
 #  default_password: Milvus # milvus default password
-#  password: Milvus
+#  password: LWlZ#s0zgX12D1#z
 #
 #video_app:
 #  model_path: /home/lyc/Downloads/roberta_zh_l12
@@ -22,12 +22,12 @@
 
 # 正式环境的配置
 milvus:
-  host: 10.10.38.87
+  host: 192.168.104.9
   port: 19530
   user: root
   init: True # only working when init milvus
   default_password: Milvus # milvus default password
-  password: Milvus
+  password: LWlZ#s0zgX12D1#z
 
 video_app:
   model_path: /home/lyc/Downloads/roberta_zh_l12
@@ -36,9 +36,9 @@ video_app:
 face_app:
   model_path: /home/lyc/Downloads/roberta_zh_l12
   log_file: face_app.log
-  image_face_collection: image_faces_v1
+  image_face_collection: image_faces_v2
   main_avatar_collection: main_avatars_v1
-  hdfs_prefix: "/VIDEO_FACE_TEST_LDH/face/"
+  hdfs_prefix: "/VIDEO_FACE_TEST_LDH"
   face_predict_dir: "/tmp/face_predict_tmp"
   video_id_file_path: "/home/gpu6/video-face-project/need_upload_hdfs"
   max_image_size_mb: 2

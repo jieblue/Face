@@ -9,7 +9,7 @@ hdfs_prefix = face_app_conf['hdfs_prefix']
 
 class KeyFrame:
 
-    def __init__(self, *, file_name, video_id, frame_num, timestamp, frame):
+    def __init__(self, *, file_name, video_id, frame_num, timestamp, frame, tag):
         """
         :param file_name: 文件名
         :param frame_num: 视频关键帧的序号
@@ -17,15 +17,16 @@ class KeyFrame:
         :param frame: 关键帧的源图片
         :param video_id: 视频id
         """
+        self.tag = tag
         self.file_name = file_name
         self.frame_num = frame_num
         self.timestamp = timestamp
         self.frame = frame
         self.video_id = video_id
-        # TODO 增加关键帧在HDFS中所在位置
-        self.hdfs_path = hdfs_prefix + "/key_frame/" + self.file_name + "/" + str(self.frame_num) + ".jpg"
         # 关键帧的唯一ID
         self.key_id = self.generate_key_id()
+        self.path_suffix = self.tag + "/key_frame/" + self.file_name + "/" + str(self.key_id) + ".jpg"
+        self.hdfs_path = hdfs_prefix + "/" + self.path_suffix
 
     def generate_key_id(self):
         return self.file_name + "_" + str(self.frame_num) + "_" + str(self.timestamp)
@@ -42,7 +43,8 @@ class KeyFrame:
 
 
 class FaceKeyFrame:
-    def __init__(self, *, file_name, video_id, frame_num, timestamp, face_num, face_frame):
+    def __init__(self, *, file_name, video_id, frame_num, timestamp, face_num, face_frame, tag):
+        self.tag = tag
         self.file_name = file_name
         self.frame_num = frame_num
         self.timestamp = timestamp
@@ -52,7 +54,8 @@ class FaceKeyFrame:
         # TODO 增加人脸在此关键帧图片中所在位置
         # self.face_location = face_location
         self.key_id = self.generate_key_id()
-        self.hdfs_path = hdfs_prefix + "/face/" + self.file_name + "/" + str(self.key_id) + ".jpg"
+        self.path_suffix = self.tag + "/face/" + self.file_name + "/" + str(self.key_id) + ".jpg"
+        self.hdfs_path = hdfs_prefix + "/" + self.path_suffix
 
     def generate_key_id(self):
         return self.file_name + "_" + str(self.frame_num) + "_" + str(self.timestamp) + "_" + str(self.face_num)

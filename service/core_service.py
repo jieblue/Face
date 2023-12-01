@@ -265,7 +265,7 @@ def save_face_to_disk(key_frames_info_list, key_faces_path, unique_filename):
             face_info['face_embedding_id'] = face_embedding_id
             file_name = f"{face_embedding_id}.jpg"
             file_path = os.path.join(dir_path, file_name)
-            print("save_face_to_disk: " + file_path)
+            logger.info("save_face_to_disk: " + file_path)
             face_info['face_file_path'] = file_path
             face_info_list.append(face_info)
             face_info['single_align_face'] = keyframes_face_info
@@ -321,7 +321,8 @@ def search_face_image(model: Face_Onnx, collection, imgs,
         }
     limit = 16383 if limit > 16383 else limit
     search_res = collection.search(embeddings, 'embedding', search_params,
-                                   limit=limit, output_fields=['object_id', 'hdfs_path', 'quality_score'], round_decimal=4)
+                                   limit=limit, output_fields=['object_id', 'hdfs_path', 'quality_score'],
+                                   round_decimal=4)
     result = []
     for one in search_res:
         _result = []

@@ -28,7 +28,8 @@ def extract_face_list(key_frame_list: List[KeyFrame]) -> List[FaceKeyFrame]:
         for face_frame in face_list:
             face_key_frame = FaceKeyFrame(file_name=key_frame.file_name, video_id=key_frame.video_id,
                                           frame_num=key_frame.frame_num,
-                                          timestamp=key_frame.timestamp, face_num=face_num, face_frame=face_frame)
+                                          timestamp=key_frame.timestamp, face_num=face_num, face_frame=face_frame,
+                                          tag=key_frame.tag)
             face_num = face_num + 1
             face_key_frame_list.append(face_key_frame)
 
@@ -55,14 +56,17 @@ def translate_face_embedding(face_frame_list: List[FaceKeyFrame]) -> List[FaceKe
         face_frame_embedding = squeeze_faces(original_embedding)[0]
 
         # 人员ID在主人像选举的时候进行添加， HDFS path， 关联的视频组， 在向量插入的时候进行关联
-        face_key_frame_embedding = FaceKeyFrameEmbedding(face_frame_info.key_id,
-                                                         None,
-                                                         score,
-                                                         face_frame_embedding,
-                                                         face_frame_info.hdfs_path,
-                                                         face_frame_info.video_id,
-                                                         face_frame_info.video_id,
-                                                         file_name=face_frame_info.file_name)
+        face_key_frame_embedding = FaceKeyFrameEmbedding(key_id=face_frame_info.key_id,
+                                                         object_id=face_frame_info.key_id,
+                                                         quantity_score=score,
+                                                         embedding=face_frame_embedding,
+                                                         hdfs_path=face_frame_info.hdfs_path,
+                                                         video_id_arr=face_frame_info.video_id,
+                                                         earliest_video_id=face_frame_info.video_id,
+                                                         file_name=face_frame_info.file_name,
+                                                         frame_num=face_frame_info.frame_num,
+                                                         timestamp=face_frame_info.timestamp,
+                                                         face_num=face_frame_info.face_num)
 
         face_frame_embedding_list.append(face_key_frame_embedding)
     return face_frame_embedding_list

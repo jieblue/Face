@@ -11,6 +11,9 @@ def video_validate(video_file: VideoFile):
     if video_file.video_id is None or video_file.video_id == "":
         raise ValueError("Video id is empty.")
 
+    if video_file.tag is None or video_file.tag == "":
+        raise ValueError("Tag is empty.")
+
 
 def validate_file_path(path: str):
     if not os.path.exists(path):
