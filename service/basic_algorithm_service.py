@@ -1,10 +1,11 @@
+import os
 from typing import List
 
 import cv2
 import numpy as np
 import av
 
-from entity.file_entity import VideoFile
+from entity.file_entity import VideoFile, ImageFile
 from entity.frame_entity import KeyFrame
 from utils import log_util
 
@@ -30,6 +31,22 @@ def extract_key_frame_list(video_file: VideoFile) -> List[KeyFrame]:
         result.append(key_frame)
         frame_num = frame_num + 1
 
+    return result
+
+
+def extract_image_key_frame_list(image_file: ImageFile) -> List[KeyFrame]:
+
+    result = []
+    frame_num = 10000
+    for file in os.listdir(image_file.file_path):
+        file_path = os.path.join(image_file.file_path, file)
+        if not os.path.isfile(file_path):
+            continue
+        np_frame = cv2.imread(file_path)
+        key_frame = KeyFrame(file_name=image_file.file_name, video_id=image_file.image_id, frame_num=1,
+                             timestamp=0, frame=np_frame, tag=image_file.tag)
+        result.append(key_frame)
+        frame_num = frame_num + 1
     return result
 
 

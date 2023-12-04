@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Any
 
 from config.config import get_config
 from entity.milvus_entity import MainFaceKeyFrameEmbedding, FaceKeyFrameEmbedding
@@ -27,6 +27,7 @@ connections.connect("default", host=milvus_conf["host"], port=milvus_conf["port"
 # 获取face_app的配置
 face_app_conf = conf['face_app']
 image_faces_v1_name = face_app_conf["image_face_collection"]
+content_faces_v1_name = face_app_conf["content_face_collection"]
 
 has = utility.has_collection(image_faces_v1_name)
 logger.info(f"Milvus collection {image_faces_v1_name} exist in Milvus: {has}")
@@ -44,6 +45,11 @@ image_faces_fields = [
 ]
 image_faces_schema = CollectionSchema(image_faces_fields, "image_faces_v1 is the simplest demo to introduce the APIs")
 image_faces_v1 = Collection(image_faces_v1_name, image_faces_schema)
+content_faces_v1 = Collection(content_faces_v1_name, image_faces_schema)
+logger.info(f"Collection {content_faces_v1} created successfully")
+
+# 内容人像库索引
+
 
 # 主头像二级人像库
 # 人像库索引
@@ -67,12 +73,17 @@ index = {
 
 image_faces_v1.create_index("embedding", index)
 main_avatar_v1.create_index("embedding", index)
+content_faces_v1.create_index("embedding", index)
+
 logger.info(f"Index {index} created successfully")
 
 image_faces_v1.load()
 main_avatar_v1.load()
+content_faces_v1.load()
 
 logger.info(f"Collection {image_faces_v1_name} loaded successfully")
+logger.info(f"Collection {main_avatar_v1} loaded successfully")
+logger.info(f"Collection {content_faces_v1} loaded successfully")
 
 
 def search_main_face(face_frame_embedding: FaceKeyFrameEmbedding) -> MainFaceKeyFrameEmbedding:
@@ -117,17 +128,8 @@ def insert_main_face(main_face_info: MainFaceKeyFrameEmbedding):
 
 
 def update_main_face(main_face_info: MainFaceKeyFrameEmbedding):
-    entities = [[], [], [], [], [], []]
-    entities[0].append(main_face_info.key_id)
-    entities[1].append(str(main_face_info.object_id))
-    entities[2].append(main_face_info.embedding)
-    entities[3].append(str(main_face_info.hdfs_path))
-    entities[4].append(main_face_info.quantity_score)
-    entities[5].append(main_face_info.recognition_state)
-    res = main_avatar_v1.insert(entities)
-    logger.info(f"Update main face {main_face_info.key_id} to Milvus. {res}")
-
-    return res
+    # 2.2.9 Collection暂无更新语句， 使用insert_main_face替代
+    return insert_main_face(main_face_info)
 
 
 def main_face_election(face_frame_embedding_info):
@@ -158,11 +160,13 @@ def main_face_election(face_frame_embedding_info):
         logger.info(f"Main face {face_frame_embedding_info.key_id} quality score is lower than 40")
 
 
-def insert_face_embedding(face_frame_embedding_list: List[FaceKeyFrameEmbedding]):
+def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKeyFrameEmbedding]):
     entities = [[], [], [], [], [], [], [], []]
     for face_frame_embedding_info in face_frame_embedding_list:
-        # 主人像选举
-        main_face_election(face_frame_embedding_info)
+
+        # 来自视频库才进行， 主人像选举
+        if file_data.tag == 'video':
+            main_face_election(face_frame_embedding_info)
         # 插入到人脸向量库里
         # 0 id, 1 object_id, 2 embedding, 3 hdfs_path 4 quantity_score, 5 video_id_arr, 6 earliest_video_id, 7 file_name
         entities[0].append(face_frame_embedding_info.key_id)
@@ -173,11 +177,15 @@ def insert_face_embedding(face_frame_embedding_list: List[FaceKeyFrameEmbedding]
         entities[5].append(face_frame_embedding_info.video_id_arr)
         entities[6].append(face_frame_embedding_info.earliest_video_id)
         entities[7].append(face_frame_embedding_info.file_name)
-
-    res = image_faces_v1.insert(entities)
-    if len(entities[0]) > 0:
-        res = image_faces_v1.insert(entities)
-        logger.info(f"Insert face frame embedding to Milvus. {res}")
+    res = None
+    if file_data.tag == 'video':
+        if len(entities[0]) > 0:
+            res = image_faces_v1.insert(entities)
+            logger.info(f"Insert face frame embedding to Milvus. {res}")
+    elif file_data.tag == 'content':
+        if len(entities[0]) > 0:
+            res = content_faces_v1.insert(entities)
+            logger.info(f"Insert content face frame embedding to Milvus. {res}")
 
     # 执行插入向量
     return res

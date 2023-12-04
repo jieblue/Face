@@ -3,7 +3,7 @@ import time
 
 from flask import Flask, request, jsonify, Response
 
-from entity.file_entity import VideoFile
+from entity.file_entity import VideoFile, ImageFile
 from entity.union_result import UnionResult
 from service.core_service import *
 from service import core_service, main_avatar_service, video_service_v3
@@ -423,6 +423,44 @@ def vectorization_v3() -> Response:
         video_file = VideoFile(file_name=file_name, file_path=video_path, video_id=video_id, tag=tag)
 
         key_frame_list, face_frame_embedding_list = video_service_v3.process_video_file(video_file)
+        data = {
+            "key_frame_list": key_frame_list,
+            "face_frame_embedding_list": face_frame_embedding_list
+        }
+        result = UnionResult(code=0, msg="face_vectorization success", data=data)
+        json_result = {
+            "code": result.code,
+            "msg": result.msg,
+            "data": result.data
+        }
+        return jsonify(json_result)
+
+    except Exception as e:
+        logger.error("face_vectorization error", e)
+        # handle the exception
+        result = UnionResult(code=-100, msg="vectorization_v3 error" + str(e), data=None)
+        json_result = {
+            "code": result.code,
+            "msg": result.msg,
+            "data": result.data
+        }
+        return jsonify(json_result)
+
+
+@app.route('/api/ability/v3/image_vectorization', methods=['POST'])
+def image_vectorization_v3() -> Response:
+    try:
+
+        json_data = request.get_json()
+        logger.info(f"face_vectorization json_data: {json_data}")
+        image_path = json_data["imagePath"]
+        image_id = json_data["imageId"]
+        file_name = json_data["fileName"]
+        tag = json_data["tag"]
+        file_name = image_id
+        image_file = ImageFile(file_name=file_name, file_path=image_path, image_id=image_id, tag=tag)
+
+        key_frame_list, face_frame_embedding_list = video_service_v3.process_image_file(image_file)
         data = {
             "key_frame_list": key_frame_list,
             "face_frame_embedding_list": face_frame_embedding_list
