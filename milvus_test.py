@@ -1,6 +1,8 @@
 import os.path
 import time
 
+import cv2
+
 from model.model_onnx import *
 from service import face_service
 from utils.img_util import *

@@ -68,3 +68,31 @@ def squeeze_faces(faces_list, threshold=0.48):
     return numpy_list
 
 
+def grouping_face(faces_list, threshold=0.55):
+# input is a list of face, every face is a dict {id:....., embedding: .....}
+# return is a list, containing some list, [[face1, face2, ], [....]....]
+    res = []
+    for face in faces_list:
+        is_duplicate = False
+        for i, single in enumerate(res):
+            if cul_similarity(single[0]['embedding'],
+                              face['embedding']) >threshold:
+                res[i].append(face)
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            res.append([face])
+
+    return res
+
+
+def cul_similarity(face_x, face_y):
+    # list 2 numpy
+    np_fx = np.array(face_x)
+    np_fy = np.array(face_y)
+
+    #numpy to tensor
+    t_fx = torch.from_numpy(np_fx).float().unsqueeze(0)
+    t_fy = torch.from_numpy(np_fy).float().unsqueeze(0)
+    return torch.nn.functional.cosine_similarity(t_fx, t_fy)

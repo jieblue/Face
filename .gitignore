@@ -2,4 +2,6 @@
 /test
 /keyframes
 /keyframes_faces
+/config/local_config.yml
 .idea
+/config/local_config.py

@@ -4,7 +4,7 @@ import time
 from model.model_onnx import *
 from service import face_service
 from utils.img_util import *
-from config.config import *
+from config.local_config import *
 from milvus_tool import local_milvus
 
 
@@ -54,6 +54,7 @@ for i, single in enumerate(extracted_faces):
 # 增强提取处来的人脸
 start = time.time()
 enhanceed_faces, err = face_service.enhance_face_batch(face_model, res_paths, aligned=True)
+print(len(enhanceed_faces))
 print('增强人脸耗时:' + str(time.time()-start))
 print(err)
 #把增强后的人脸写在 /res_img下
