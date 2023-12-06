@@ -6,26 +6,26 @@ import numpy as np
 # 把人脸图片转为特征向量
 class Adaface_Onnx:
     def __init__(self, path, gpu_id=0):
-        #使用gpu
-        providers = [
-            ('cudaexecutionprovider', {
-                'device_id': gpu_id,
-                'arena_extend_strategy': 'knextpoweroftwo',
-                # 'gpu_mem_limit': 2 * 1024 * 1024 * 1024,
-                # 'cudnn_conv_algo_search': 'default',
-                'do_copy_in_default_stream': true,
+        #使用GPU
+        PROVIDERS = [
+            ('CUDAEXECUTIONPROVIDER', {
+                'DEVICE_ID': GPU_ID,
+                'ARENA_EXTEND_STRATEGY': 'KNEXTPOWEROFTWO',
+                # 'GPU_MEM_LIMIT': 2 * 1024 * 1024 * 1024,
+                # 'CUDNN_CONV_ALGO_SEARCH': 'DEFAULT',
+                'DO_COPY_IN_DEFAULT_STREAM': TRUE,
             }),
-            'cpuexecutionprovider',
+            'CPUEXECUTIONPROVIDER',
         ]
 
 
-        so = ort.sessionoptions()
-        so.log_severity_level = 3
+        SO = ORT.SESSIONOPTIONS()
+        SO.LOG_SEVERITY_LEVEL = 3
 
-        # 加载 onnx模型到onnxruntime的推理
-        self.session = ort.inferencesession(path, so, providers=providers)
-        # onnx获取输入名称
-        self.input_name = self.session.get_inputs()[0].name
+        # 加载 ONNX模型到ONNXRUNTIME的推理
+        SELF.SESSION = ORT.INFERENCESESSION(PATH, SO, PROVIDERS=PROVIDERS)
+        # ONNX获取输入名称
+        SELF.INPUT_NAME = SELF.SESSION.GET_INPUTS()[0].NAME
 
     # 获得模型的输出
     def forward(self, img):
