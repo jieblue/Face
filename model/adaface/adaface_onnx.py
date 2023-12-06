@@ -6,24 +6,24 @@ import numpy as np
 # 把人脸图片转为特征向量
 class Adaface_Onnx:
     def __init__(self, path, gpu_id=0):
-        #使用GPU
+        #使用gpu
         providers = [
-            ('CUDAExecutionProvider', {
+            ('cudaexecutionprovider', {
                 'device_id': gpu_id,
-                'arena_extend_strategy': 'kNextPowerOfTwo',
+                'arena_extend_strategy': 'knextpoweroftwo',
                 # 'gpu_mem_limit': 2 * 1024 * 1024 * 1024,
-                # 'cudnn_conv_algo_search': 'DEFAULT',
-                'do_copy_in_default_stream': True,
+                # 'cudnn_conv_algo_search': 'default',
+                'do_copy_in_default_stream': true,
             }),
-            'CPUExecutionProvider',
+            'cpuexecutionprovider',
         ]
 
 
-        so = ort.SessionOptions()
+        so = ort.sessionoptions()
         so.log_severity_level = 3
 
         # 加载 onnx模型到onnxruntime的推理
-        self.session = ort.InferenceSession(path, so, providers=providers)
+        self.session = ort.inferencesession(path, so, providers=providers)
         # onnx获取输入名称
         self.input_name = self.session.get_inputs()[0].name
 
