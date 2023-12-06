@@ -9,7 +9,7 @@ hdfs_prefix = face_app_conf['hdfs_prefix']
 
 class KeyFrame:
 
-    def __init__(self, *, file_name, video_id, frame_num, timestamp, frame, tag):
+    def __init__(self, *, file_name, video_id, frame_num, timestamp, frame, frame_stream, tag):
         """
         :param file_name: 文件名
         :param frame_num: 视频关键帧的序号
@@ -22,6 +22,7 @@ class KeyFrame:
         self.frame_num = frame_num
         self.timestamp = timestamp
         self.frame = frame
+        self.frame_stream = frame_stream
         self.video_id = video_id
         # 关键帧的唯一ID
         self.key_id = self.generate_key_id()

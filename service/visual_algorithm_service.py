@@ -5,8 +5,9 @@ import torch
 
 from config.config import get_config
 from entity.frame_entity import KeyFrame, FaceKeyFrame
-from entity.milvus_entity import FaceKeyFrameEmbedding, MainFaceKeyFrameEmbedding
+from entity.milvus_entity import FaceKeyFrameEmbedding, MainFaceKeyFrameEmbedding, KeyFrameEmbedding
 from model.model_onnx import Face_Onnx
+from model.model_video import VideoModel
 from service import milvus_service
 from utils import log_util
 from utils.img_util import cv_imread
@@ -17,6 +18,10 @@ logger = log_util.get_logger(__name__)
 conf = get_config()
 # 加载人脸模型 加载模型会耗时比较长
 face_model = Face_Onnx(conf['model'], gpu_id=0)
+logger.info("Face model loaded successfully")
+
+video_model = VideoModel('./config/weights/ResNet50.onnx', gpu_id=0)
+logger.info("Video model loaded successfully")
 
 
 def extract_face_list(key_frame_list: List[KeyFrame]) -> List[FaceKeyFrame]:
@@ -36,14 +41,29 @@ def extract_face_list(key_frame_list: List[KeyFrame]) -> List[FaceKeyFrame]:
     return face_key_frame_list
 
 
-def translate_frame_embedding(key_frame_list: List[KeyFrame]):
-    raise NotImplementedError("translate_frame_embedding not implemented")
+def translate_frame_embedding(key_frame_list: List[KeyFrame]) -> List[KeyFrameEmbedding]:
+    frame_embedding_list = []
+    for frame_info in key_frame_list:
+        # 转换向量
+        frame_embedding = video_model.get_frame_embedding(frame_info.frame_stream.to_image())
+
+        # 人员ID在主人像选举的时候进行添加， HDFS path， 关联的视频组， 在向量插入的时候进行关联
+        key_frame_embedding = KeyFrameEmbedding(key_id=frame_info.key_id,
+                                                embedding=frame_embedding,
+                                                hdfs_path=frame_info.hdfs_path,
+                                                earliest_video_id=frame_info.video_id,
+                                                file_name=frame_info.file_name,
+                                                frame_num=frame_info.frame_num,
+                                                timestamp=frame_info.timestamp)
+
+        frame_embedding_list.append(key_frame_embedding)
+
+    return frame_embedding_list
 
 
 def translate_face_embedding(face_frame_list: List[FaceKeyFrame]) -> List[FaceKeyFrameEmbedding]:
     face_frame_embedding_list = []
     for face_frame_info in face_frame_list:
-
         # 人脸质量得分
         score = face_model.tface.forward(face_frame_info.face_frame)
         # TODO 人脸质量得分低于多少分的可以启动是否增强人脸
@@ -122,3 +142,6 @@ def get_face_quality_single_img(model: Face_Onnx, image_path):
     img = cv_imread(image_path)
     score = model.tface.forward(img)
     return score
+
+
+

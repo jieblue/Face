@@ -44,10 +44,11 @@ def process_image_file(image_file: ImageFile):
 
 def process_key_frame(file_data: Any, key_frame_list: List[KeyFrame], face_frame_list: List[FaceKeyFrame]):
     # TODO 将视频关键帧进行转换， 提取视频关键帧特征集合
-    # key_frame_embedding_list = visual_algorithm_service.translate_frame_embedding(key_frame_list)
+    key_frame_embedding_list = visual_algorithm_service.translate_frame_embedding(key_frame_list)
+    logger.info(f"Key frame embedding list extracted. {len(key_frame_embedding_list)}")
     # 将视频关键帧特征集合存储到Milvus中
-    # frame_insert_result = milvus_service.insert_frame_embedding(key_frame_embedding_list)
-
+    frame_insert_result = milvus_service.insert_frame_embedding(file_data, key_frame_embedding_list)
+    logger.info(f"Key frame embedding list inserted. {frame_insert_result}")
     # 将人脸关键帧进行转换， 提取人脸关键帧特征集合
     face_frame_embedding_list = visual_algorithm_service.translate_face_embedding(face_frame_list)
     logger.info(f"Face frame embedding list extracted. {len(face_frame_embedding_list)}")
@@ -59,6 +60,9 @@ def process_key_frame(file_data: Any, key_frame_list: List[KeyFrame], face_frame
     # 将人脸关键帧特征集合存储到本地路径
     file_service.save_face_to_disk(face_frame_list)
     logger.info(f"Face frame list saved to disk.")
+
+    # 将视频关键帧特征集合存储到本地路径
+    file_service.save_frame_to_disk(key_frame_list)
 
     key_frame_embedding_list_result = []
     # 删除多余的字段

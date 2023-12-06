@@ -1,4 +1,4 @@
-from model.model_video import Video_Model
+from model.model_video import VideoModel
 import av
 import os
 import shutil
@@ -54,7 +54,7 @@ def av_frame2np(frame):
     np_frame = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
     return np_frame
 
-def get_frames_feature(model: Video_Model, key_frames_info_list):
+def get_frames_feature(model: VideoModel, key_frames_info_list):
     frame_feature_list = []
     for key_frames_info in key_frames_info_list:
         frame_file_path = key_frames_info['frame_file_path']
