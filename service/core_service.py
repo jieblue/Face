@@ -336,7 +336,46 @@ def search_face_image(model: Face_Onnx, collection, imgs,
                     'score': single.score,
                     'hdfs_path': single.entity.hdfs_path,
                     'quality_score': str(single.entity.quality_score)
+                }
+                # get_search_result(single.id, single.entity.user_id, single.score)
+                _result.append(tmp)
+        result.append(_result)
 
+    return result
+
+def search_main_face_image(model: Face_Onnx, collection, imgs,
+                      enhance=False, score=0.5, limit=10, search_params=None, nprobe=50):
+    embeddings = []
+    for img in imgs:
+        embedding = model.turn2embeddings(img, enhance=enhance)
+        if len(embedding) == 0:
+            embeddings.append(np.zeros([512], dtype=np.float32))
+            continue
+        embeddings.append(embedding[0])
+
+    if search_params is None:
+        search_params = {
+            "metric_type": "IP",
+            "params": {"nprobe": nprobe},
+        }
+    limit = 16383 if limit > 16383 else limit
+    search_res = collection.search(embeddings, 'embedding', search_params,
+                                   limit=limit, output_fields=['object_id', 'hdfs_path', 'quality_score', 'recognition_state'],
+                                   round_decimal=4)
+    result = []
+    for one in search_res:
+        _result = []
+        for single in one:
+            # print(single)
+            if single.score >= score:
+                tmp = {
+                    # 'primary_key': single.id,
+                    'id': single.entity.id,
+                    'object_id': single.entity.object_id,
+                    'score': single.score,
+                    'hdfs_path': single.entity.hdfs_path,
+                    'quality_score': str(single.entity.quality_score),
+                    'recognition_state': single.entity.recognition_state
                 }
                 # get_search_result(single.id, single.entity.user_id, single.score)
                 _result.append(tmp)

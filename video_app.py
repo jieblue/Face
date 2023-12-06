@@ -59,7 +59,7 @@ conf = get_config()
 milvus_conf = conf['milvus']
 
 
-video_model = Video_Model('./config/weights/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5', gpu_id=0)
+video_model = VideoModel('./config/weights/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5', gpu_id=0)
 logger.info("Video model loaded successfully")
 
 
@@ -78,7 +78,6 @@ fields = [
     FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=128),
     FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=2048),
     FieldSchema(name="hdfs_path", dtype=DataType.VARCHAR, max_length=256),
-
 ]
 schema = CollectionSchema(fields, "video_frame_v1_name is the simplest demo to introduce the APIs")
 video_frame_v1 = Collection(video_frame_v1_name, schema)

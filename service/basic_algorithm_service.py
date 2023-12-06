@@ -27,7 +27,7 @@ def extract_key_frame_list(video_file: VideoFile) -> List[KeyFrame]:
         timestamp = round(frame.pts * stream.time_base)
         np_frame = av_frame2np(frame)
         key_frame = KeyFrame(file_name=video_file.file_name, video_id=video_file.video_id, frame_num=frame_num,
-                             timestamp=timestamp, frame=np_frame, tag=video_file.tag)
+                             timestamp=timestamp, frame=np_frame, frame_stream=frame, tag=video_file.tag)
         result.append(key_frame)
         frame_num = frame_num + 1
 

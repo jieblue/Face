@@ -1,36 +1,66 @@
-import tensorflow as tf
 from PIL import Image
-import numpy as np
+import torch
+import torchvision.transforms as transforms
+import time
+import onnxruntime as ort
+
+from utils import log_util
+
+# Create a logger
+logger = log_util.get_logger(__name__)
 
 
-
-class Video_Model:
+class VideoModel:
     def __init__(self, config, gpu_id=0):
-        with tf.device('/gpu:{}'.format(gpu_id) if gpu_id >= 0 else '/cpu:0'):
-            self.model = tf.keras.applications.ResNet50(include_top=False,weights=None)
-            self.model.load_weights(config)
+        providers = [
+            ('CUDAExecutionProvider', {
+                'device_id': 0,
+                'arena_extend_strategy': 'kNextPowerOfTwo',
+                # 'gpu_mem_limit': 2 * 1024 * 1024 * 1024,
+                'cudnn_conv_algo_search': 'DEFAULT',
+                'do_copy_in_default_stream': True,
+            }),
+            'CPUExecutionProvider',
+        ]
 
+        so = ort.SessionOptions()
+        so.log_severity_level = 3
+        # 加载onnx模型到onnxruntime的推理
+        self.session = ort.InferenceSession(config, so, providers=providers)
+        # self.session = ort.InferenceSession(config, so)
+        self.input_name = self.session.get_inputs()[0].name
+        self.preprocess = transforms.Compose([
+            transforms.Resize([224, 224]),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        # with tf.device('/gpu:{}'.format(gpu_id) if gpu_id >= 0 else '/cpu:0'):
+        #     self.model = tf.keras.applications.ResNet50(include_top=False, weights=None)
+        #     self.model.load_weights(config)
 
-    
-    def get_frame_embedding(self, frame_path):
-        print(frame_path)
-        # if distant:
-        #     content = requests.get(url, stream=True).content
-        #     byteStream = io.BytesIO(content)
-        #     image = Image.open(byteStream)
-        # else:
-        #     image = Image.open(url)
-        image=Image.open(frame_path)
-        image = image.resize([224, 224]).convert('RGB')
-        y = tf.keras.preprocessing.image.img_to_array(image)
-        y = np.expand_dims(y, axis=0)
-        # print(y)
-        y = tf.keras.applications.resnet50.preprocess_input(y)
-        # print(type(y), y)
-        y = self.model.predict(y)
-        result = tf.keras.layers.GlobalAveragePooling2D()(y)
-        feature = [x for x in result.numpy()[0].tolist()]
+    def get_frame_embedding(self, frame_image):
+        # 提取每个帧的特征向量
+        start_time = time.time()
+        # 打开图像并进行预处理
+        # image = Image.open(frame_path).convert("RGB")
+        image = self.preprocess(frame_image).unsqueeze(0).numpy()
+        # 使用模型提取特征
+        # with torch.no_grad():
+        # 输入模型进行推理
+        feature = self.session.run(None, {self.input_name: image})
+        feature = torch.from_numpy(feature[0])
+        feature = torch.nn.functional.adaptive_avg_pool2d(feature, [1, 1])
+        # feature = feature.cpu().flatten().numpy()
+        feature = feature.flatten().numpy()
+        feature = feature.tolist()
 
+        end_time = time.time()
+        logger.info("Extract feature time: {}".format(end_time - start_time))
         return feature
 
-
+    def get_frame_embedding_path(self, frame_path):
+        # 提取每个帧的特征向量
+        start_time = time.time()
+        # 打开图像并进行预处理
+        image = Image.open(frame_path).convert("RGB")
+        return self.get_frame_embedding(image)

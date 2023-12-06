@@ -5,9 +5,10 @@ from flask import Flask, request, jsonify, Response
 
 from entity.file_entity import VideoFile, ImageFile
 from entity.union_result import UnionResult
+from model.model_video import VideoModel
 from service.core_service import *
 from service import core_service, main_avatar_service, video_service_v3
-from service.milvus_service import image_faces_v1, main_avatar_v1
+from service.milvus_service import image_faces_v1, main_avatar_v1, video_frame_v1
 from utils import log_util
 from utils.img_util import *
 from config.config import *
@@ -49,6 +50,8 @@ logger = log_util.get_logger(__name__)
 
 # 加载人脸模型 加载模型会耗时比较长
 face_model = Face_Onnx(conf['model'], gpu_id=0)
+video_model = VideoModel('./config/weights/ResNet50.onnx', gpu_id=0)
+logger.info("Video model loaded successfully")
 
 key_frames_path = './keyframes'
 key_faces_path = './keyframes_faces'
@@ -408,6 +411,61 @@ def update_main_avatar():
     return jsonify(result)
 
 
+@app.route('/api/ability/update_main_avatar_object', methods=['POST'])
+def update_main_avatar_object():
+    result = {
+        "code": 0,
+        "msg": "success",
+    }
+
+    object_id = request.form.get('objectId')
+    if object_id is None:
+        result["code"] = -1
+        result["msg"] = "object_id is None"
+        return jsonify(result)
+
+    recognition_state = request.form.get('recognitionState')
+    if recognition_state is None:
+        recognition_state = 'identification'
+
+    if recognition_state != 'identification' and recognition_state != 'unidentification':
+        result["code"] = -1
+        result["msg"] = "recognitionState is error, value must be identification or unidentification"
+        return jsonify(result)
+
+    search_res = main_avatar_v1.query(
+        expr="id == '" + object_id + "'",
+        limit=1,
+        output_fields=["object_id", "hdfs_path", "embedding", "quality_score", "recognition_state"]
+    )
+
+    logger.info(f"search_res: {search_res}")
+
+    if len(search_res) == 0:
+        logger.info(f"object_id: {object_id} not found")
+        result["code"] = -1
+        result["msg"] = "object_id not found"
+        return jsonify(result)
+
+    for single in search_res:
+        entities = [[], [], [], [], [], []]
+
+        entities[0].append(object_id)
+        entities[1].append(single['object_id'])
+        entities[2].append(single['embedding'])
+        entities[3].append(single['hdfs_path'])
+        entities[4].append(single['quality_score'])
+        entities[5].append(recognition_state)
+
+        main_avatar_res = main_avatar_v1.upsert(entities)
+        logger.info(f"main_avatar_res: {main_avatar_res}")
+        logger.info(f"object_id: {object_id} update recognition_state to {recognition_state}")
+
+    result["objectId"] = object_id
+    result['msg'] = "更新成功"
+    return jsonify(result)
+
+
 # =========== V3版本重构造 ==================
 @app.route('/api/ability/v3/face_vectorization', methods=['POST'])
 def vectorization_v3() -> Response:
@@ -583,9 +641,9 @@ def main_face_predict():
             "ignore_growing": False,
             "params": {"nprobe": 50}
         }
-        res = core_service.search_face_image(face_model, main_avatar_v1, imgs,
-                                             enhance=False, score=float(score), limit=int(page_size),
-                                             search_params=search_params)
+        res = core_service.search_main_face_image(face_model, main_avatar_v1, imgs,
+                                                  enhance=False, score=float(score), limit=int(page_size),
+                                                  search_params=search_params)
 
         logger.info('搜索耗时: ' + str(time.time() - start))
         logger.info(f"搜索结果: {res}")
@@ -594,6 +652,80 @@ def main_face_predict():
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
     return jsonify(result)
+
+
+video_predict_dir = '/tmp/video_predict_tmp'
+
+
+@app.route('/api/ability/video_predict', methods=['POST'])
+def video_predict():
+    result = {
+        "code": 0,
+        "msg": "success",
+    }
+    file = request.files['file']  # Assuming the file input field is named 'file'
+    score = request.form.get('score')
+    if score is None:
+        score = 0.4
+    # limit = request.form.get('limit')
+    page_num = request.form.get('pageNum')
+    if page_num is None:
+        page_num = 1
+    page_size = request.form.get('pageSize')
+    if page_size is None:
+        page_size = 10
+
+    offset = (int(page_num) - 1) * int(page_size)
+    search_params = {
+        "metric_type": "L2",
+        "offset": offset,
+        "params": {"nprobe": 20},
+    }
+
+    if file:
+        uuid_filename = generator.generate_unique_value()
+        print("uuid_filename")
+        print(uuid_filename)
+
+        dir_path = video_predict_dir + uuid_filename + ".jpg"
+        file.save(dir_path)  # Replace with the path where you want to save the file
+
+        start = time.time()
+        search_vectors = video_model.get_frame_embedding_path(dir_path)
+
+        res = video_frame_v1.search([search_vectors], 'embedding', search_params, limit=int(page_size),
+                                    output_fields=['hdfs_path'])
+        frame_result = []
+        for one in res:
+            _result = []
+            for single in one:
+                # print(single)
+                tmp = {
+                    # 'primary_key': single.id,
+                    'id': single.entity.id,
+                    'score': normalized_euclidean_distance(single.distance),
+                    'hdfs_path': single.entity.hdfs_path
+                }
+                # get_search_result(single.id, single.entity.user_id, single.score)
+                _result.append(tmp)
+            frame_result.append(_result)
+        print('搜索耗时: ' + str(time.time() - start))
+        print("搜索结果: ")
+        print(res)
+        print("搜索结果 res[0]: ")
+        print(res[0])
+        result['res'] = frame_result
+    else:
+        result["code"] = -1
+        result["msg"] = "File uploaded Failure!"
+
+    print('Result')
+    print(result)
+    return jsonify(result)
+
+
+def normalized_euclidean_distance(L2, dim=2048):
+    return 1 / (1 + L2 / dim)
 
 
 if __name__ == '__main__':
