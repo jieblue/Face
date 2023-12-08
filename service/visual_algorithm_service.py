@@ -87,9 +87,10 @@ def translate_face_embedding(face_frame_list: List[FaceKeyFrame]) -> List[FaceKe
                                                          frame_num=face_frame_info.frame_num,
                                                          timestamp=face_frame_info.timestamp,
                                                          face_num=face_frame_info.face_num)
-
+        logger.info(f"FaceKeyFrameEmbedding is {face_key_frame_embedding.key_id} is complete")
         face_frame_embedding_list.append(face_key_frame_embedding)
-    return face_frame_embedding_list
+
+    return grouping_face(face_frame_embedding_list)
 
 
 def squeeze_faces(faces_list, threshold=0.48):
@@ -144,4 +145,44 @@ def get_face_quality_single_img(model: Face_Onnx, image_path):
     return score
 
 
+def grouping_face(face_embedding_list: List[FaceKeyFrameEmbedding], threshold=0.55):
+    # input is a list of face, every face is a dict {id:....., embedding: .....}
+    # return is a list, containing some list, [[face1, face2, ], [....]....]
+    res = []
+    for face_embedding_info in face_embedding_list:
+        is_duplicate = False
+        for i, single in enumerate(res):
+            if cul_similarity(single[0].embedding,
+                              face_embedding_info.embedding) > threshold:
+                res[i].append(face_embedding_info)
+                is_duplicate = True
+                break
 
+        if not is_duplicate:
+            res.append([face_embedding_info])
+
+    # 分组完成后， 每组比较得分最高的人脸作为主人像， 只保留最高的人脸
+    result_list = []
+    for i, single in enumerate(res):
+        max_score = 0
+        max_index = 0
+        for j, face_embedding_info in enumerate(single):
+            if face_embedding_info.quantity_score > max_score:
+                max_score = face_embedding_info.quantity_score
+                max_index = j
+        logger.info(f"Grouping face {i} max score is {max_score}, face_embedding_info  is "
+                    f"{single[max_index].to_dict()}")
+        result_list.append(single[max_index])
+
+    return result_list
+
+
+def cul_similarity(face_x, face_y):
+    # list 2 numpy
+    np_fx = np.array(face_x)
+    np_fy = np.array(face_y)
+
+    # numpy to tensor
+    t_fx = torch.from_numpy(np_fx).float().unsqueeze(0)
+    t_fy = torch.from_numpy(np_fy).float().unsqueeze(0)
+    return torch.nn.functional.cosine_similarity(t_fx, t_fy)

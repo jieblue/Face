@@ -21,8 +21,8 @@ def save_face_to_disk(face_frame_list: List[FaceKeyFrame]):
         logger.info(f"save_face_to_disk success {file_path}")
 
 
-def save_frame_to_disk(face_frame_list: List[KeyFrame]):
-    for face_frame in face_frame_list:
+def save_frame_to_disk(key_frame_list: List[KeyFrame]):
+    for face_frame in key_frame_list:
         dir_path = os.path.join(key_frame_path, face_frame.tag + "/key_frame/" + face_frame.file_name + "/")
         os.makedirs(dir_path, exist_ok=True)
         file_path = key_frame_path + face_frame.path_suffix
