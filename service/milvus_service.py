@@ -174,9 +174,16 @@ def insert_main_face(main_face_info: MainFaceKeyFrameEmbedding):
 
 
 def update_main_face(main_face_info: MainFaceKeyFrameEmbedding):
-    # 2.2.9 Collection暂无更新语句， 使用insert_main_face替代
+    entities = [[], [], [], [], [], []]
+    entities[0].append(main_face_info.key_id)
+    entities[1].append(str(main_face_info.object_id))
+    entities[2].append(main_face_info.embedding)
+    entities[3].append(str(main_face_info.hdfs_path))
+    entities[4].append(main_face_info.quantity_score)
+    entities[5].append(main_face_info.recognition_state)
+    res = main_avatar_v1.upsert(entities)
+    logger.info(f"Insert main face {main_face_info.key_id} to Milvus. {res}")
     logger.info(f"update_main_face main face {main_face_info.key_id} to Milvus. ")
-    return insert_main_face(main_face_info)
 
 
 def main_face_election(face_frame_embedding_info):
@@ -219,16 +226,18 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
         # 来自视频库才进行， 主人像选举
         if file_data.tag == 'video':
             main_face_election(face_frame_embedding_info)
-        # 插入到人脸向量库里
-        # 0 id, 1 object_id, 2 embedding, 3 hdfs_path 4 quantity_score, 5 video_id_arr, 6 earliest_video_id, 7 file_name
-        entities[0].append(face_frame_embedding_info.key_id)
-        entities[1].append(str(face_frame_embedding_info.object_id))
-        entities[2].append(face_frame_embedding_info.embedding)
-        entities[3].append(str(face_frame_embedding_info.hdfs_path))
-        entities[4].append(face_frame_embedding_info.quantity_score)
-        entities[5].append(face_frame_embedding_info.video_id_arr)
-        entities[6].append(face_frame_embedding_info.earliest_video_id)
-        entities[7].append(face_frame_embedding_info.file_name)
+
+        if float(face_frame_embedding_info.quantity_score) > 40:
+            # 插入到人脸向量库里
+            # 0 id, 1 object_id, 2 embedding, 3 hdfs_path 4 quantity_score, 5 video_id_arr, 6 earliest_video_id, 7 file_name
+            entities[0].append(face_frame_embedding_info.key_id)
+            entities[1].append(str(face_frame_embedding_info.object_id))
+            entities[2].append(face_frame_embedding_info.embedding)
+            entities[3].append(str(face_frame_embedding_info.hdfs_path))
+            entities[4].append(face_frame_embedding_info.quantity_score)
+            entities[5].append(face_frame_embedding_info.video_id_arr)
+            entities[6].append(face_frame_embedding_info.earliest_video_id)
+            entities[7].append(face_frame_embedding_info.file_name)
     res = None
     if file_data.tag == 'video':
         if len(entities[0]) > 0:
