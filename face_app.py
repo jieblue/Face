@@ -200,7 +200,7 @@ def determine_face():
 
         img = cv_imread(dir_path)
 
-        embedding = face_model.turn2embeddings(img, enhance=False)
+        embedding = face_model.turn2embeddings(img, enhance=False, confidence=0.9)
         if len(embedding) == 0:
             result["face_found_in_image"] = False
             result['error_message'] = 'No face found'
@@ -657,6 +657,77 @@ def main_face_predict():
 video_predict_dir = '/tmp/video_predict_tmp'
 
 
+@app.route('/api/ability/content_video_predict', methods=['POST'])
+def content_video_predict():
+    result = {
+        "code": 0,
+        "msg": "success",
+    }
+    file = request.files['file']  # Assuming the file input field is named 'file'
+    score = request.form.get('score')
+    if score is None:
+        score = 0.4
+    # limit = request.form.get('limit')
+    page_num = request.form.get('pageNum')
+    if page_num is None:
+        page_num = 1
+    page_size = request.form.get('pageSize')
+    if page_size is None:
+        page_size = 10
+
+    offset = (int(page_num) - 1) * int(page_size)
+    search_params = {
+        "metric_type": "L2",
+        "offset": offset,
+        "params": {"nprobe": 20},
+    }
+
+    if file:
+        uuid_filename = generator.generate_unique_value()
+        print("uuid_filename")
+        print(uuid_filename)
+
+        dir_path = video_predict_dir + uuid_filename + ".jpg"
+        file.save(dir_path)  # Replace with the path where you want to save the file
+
+        start = time.time()
+        search_vectors = video_model.get_frame_embedding_path(dir_path)
+
+        res = content_frame_v1.search([search_vectors], 'embedding', search_params, limit=int(page_size),
+                                    output_fields=['hdfs_path', 'earliest_video_id'])
+        frame_result = []
+        for one in res:
+            _result = []
+            for single in one:
+                # print(single)
+                earliest_video_id = ""
+                if single.entity.earliest_video_id is not None:
+                    earliest_video_id = str(single.entity.earliest_video_id).split("_")[0]
+                tmp = {
+                    # 'primary_key': single.id,
+                    'id': single.entity.id,
+                    'score': normalized_euclidean_distance(single.distance),
+                    'hdfs_path': single.entity.hdfs_path,
+                    'earliest_video_id': earliest_video_id
+                }
+                # get_search_result(single.id, single.entity.user_id, single.score)
+                _result.append(tmp)
+            frame_result.append(_result)
+        print('搜索耗时: ' + str(time.time() - start))
+        print("搜索结果: ")
+        print(res)
+        print("搜索结果 res[0]: ")
+        print(res[0])
+        result['res'] = frame_result
+    else:
+        result["code"] = -1
+        result["msg"] = "File uploaded Failure!"
+
+    print('Result')
+    print(result)
+    return jsonify(result)
+
+
 @app.route('/api/ability/video_predict', methods=['POST'])
 def video_predict():
     result = {
@@ -694,74 +765,6 @@ def video_predict():
         search_vectors = video_model.get_frame_embedding_path(dir_path)
 
         res = video_frame_v1.search([search_vectors], 'embedding', search_params, limit=int(page_size),
-                                    output_fields=['hdfs_path', 'earliest_video_id'])
-        frame_result = []
-        for one in res:
-            _result = []
-            for single in one:
-                # print(single)
-                tmp = {
-                    # 'primary_key': single.id,
-                    'id': single.entity.id,
-                    'score': normalized_euclidean_distance(single.distance),
-                    'hdfs_path': single.entity.hdfs_path,
-                    'earliest_video_id': single.entity.earliest_video_id
-                }
-                # get_search_result(single.id, single.entity.user_id, single.score)
-                _result.append(tmp)
-            frame_result.append(_result)
-        print('搜索耗时: ' + str(time.time() - start))
-        print("搜索结果: ")
-        print(res)
-        print("搜索结果 res[0]: ")
-        print(res[0])
-        result['res'] = frame_result
-    else:
-        result["code"] = -1
-        result["msg"] = "File uploaded Failure!"
-
-    print('Result')
-    print(result)
-    return jsonify(result)
-
-
-@app.route('/api/ability/content_video_predict', methods=['POST'])
-def video_predict():
-    result = {
-        "code": 0,
-        "msg": "success",
-    }
-    file = request.files['file']  # Assuming the file input field is named 'file'
-    score = request.form.get('score')
-    if score is None:
-        score = 0.4
-    # limit = request.form.get('limit')
-    page_num = request.form.get('pageNum')
-    if page_num is None:
-        page_num = 1
-    page_size = request.form.get('pageSize')
-    if page_size is None:
-        page_size = 10
-
-    offset = (int(page_num) - 1) * int(page_size)
-    search_params = {
-        "metric_type": "L2",
-        "offset": offset,
-        "params": {"nprobe": 20},
-    }
-
-    if file:
-        uuid_filename = generator.generate_unique_value()
-        print("uuid_filename")
-        print(uuid_filename)
-
-        dir_path = video_predict_dir + uuid_filename + ".jpg"
-        file.save(dir_path)  # Replace with the path where you want to save the file
-
-        start = time.time()
-        search_vectors = video_model.get_frame_embedding_path(dir_path)
-
-        res = content_frame_v1.search([search_vectors], 'embedding', search_params, limit=int(page_size),
                                       output_fields=['hdfs_path', 'earliest_video_id'])
         frame_result = []
         for one in res:
