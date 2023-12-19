@@ -7,7 +7,8 @@ from entity.file_entity import VideoFile, ImageFile
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
 from service.core_service import *
-from service import core_service, main_avatar_service, video_service_v3
+from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service
+from service.elasticsearch_service import image_faces_v1_index
 from service.milvus_service import image_faces_v1, main_avatar_v1, video_frame_v1, content_frame_v1
 from utils import log_util
 from utils.img_util import *
@@ -428,6 +429,9 @@ def update_main_avatar_object():
     if recognition_state is None:
         recognition_state = 'identification'
 
+
+    new_object_id = request.form.get('newObjectId')
+
     if recognition_state != 'identification' and recognition_state != 'unidentification':
         result["code"] = -1
         result["msg"] = "recognitionState is error, value must be identification or unidentification"
@@ -451,7 +455,10 @@ def update_main_avatar_object():
         entities = [[], [], [], [], [], []]
 
         entities[0].append(object_id)
-        entities[1].append(single['object_id'])
+        if new_object_id is None:
+            entities[1].append(single['object_id'])
+        else:
+            entities[1].append(new_object_id)
         entities[2].append(single['embedding'])
         entities[3].append(single['hdfs_path'])
         entities[4].append(single['quality_score'])
@@ -588,6 +595,52 @@ def face_predict():
         res = core_service.search_face_image(face_model, image_faces_v1, imgs,
                                              enhance=False, score=float(score), limit=int(page_size),
                                              search_params=search_params)
+
+        logger.info('搜索耗时: ' + str(time.time() - start))
+        logger.info(f"搜索结果: {res}")
+        result['res'] = res
+    else:
+        result["code"] = -1
+        result["msg"] = "File uploaded Failure!"
+    return jsonify(result)
+
+
+@app.route('/api/ability/es/face_predict', methods=['POST'])
+def es_face_predict():
+    result = {
+        "code": 0,
+        "msg": "success",
+    }
+    file = request.files['file']  # Assuming the file input field is named 'file'
+    score = request.form.get('score')
+    if score is None:
+        score = 0.4
+    # limit = request.form.get('limit')
+    page_num = request.form.get('pageNum')
+    if page_num is None:
+        page_num = 1
+    page_size = request.form.get('pageSize')
+    if page_size is None:
+        page_size = 10
+    logger.info("score:" + str(score))
+    logger.info("page_num:" + str(page_num))
+    logger.info("page_size:" + str(page_size))
+
+    offset = (int(page_num) - 1) * int(page_size)
+
+    if file:
+        uuid_filename = generator.generate_unique_value()
+        logger.info("uuid_filename: " + uuid_filename)
+
+        dir_path = face_predict_dir + '/' + uuid_filename + ".jpg"
+        file.save(dir_path)  # Replace with the path where you want to save the file
+
+        image = cv_imread(dir_path)
+
+        start = time.time()
+
+        res = elasticsearch_service.search_face_image(face_model, image_faces_v1_index, image, enhance=False,
+                                                      score=float(score), start=offset, size=int(page_size))
 
         logger.info('搜索耗时: ' + str(time.time() - start))
         logger.info(f"搜索结果: {res}")

@@ -2,7 +2,8 @@ from typing import List, Any
 
 from entity.file_entity import VideoFile, ImageFile
 from entity.frame_entity import KeyFrame, FaceKeyFrame
-from service import video_validator, basic_algorithm_service, visual_algorithm_service, milvus_service, file_service
+from service import video_validator, basic_algorithm_service, visual_algorithm_service, milvus_service, file_service, \
+    elasticsearch_service
 from utils import log_util
 
 # Create a logger
@@ -54,7 +55,7 @@ def process_key_frame(file_data: Any, key_frame_list: List[KeyFrame], face_frame
     logger.info(f"Face frame embedding list extracted. {len(face_frame_embedding_list)}")
 
     # 将人脸关键帧特征集合存储到Milvus中
-    face_insert_result = milvus_service.insert_face_embedding(file_data, face_frame_embedding_list)
+    face_insert_result = elasticsearch_service.insert_face_embedding(file_data, face_frame_embedding_list)
     logger.info(f"Face frame embedding list inserted. {face_insert_result}")
 
     # 将人脸关键帧特征集合存储到本地路径
