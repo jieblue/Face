@@ -8,7 +8,7 @@ from entity.union_result import UnionResult
 from model.model_video import VideoModel
 from service.core_service import *
 from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service
-from service.elasticsearch_service import image_faces_v1_index
+from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index
 from service.milvus_service import image_faces_v1, main_avatar_v1, video_frame_v1, content_frame_v1
 from utils import log_util
 from utils.img_util import *
@@ -92,7 +92,6 @@ def main_face_list():
     score = request.form.get('score')
     if score is None:
         score = 0.4
-    # limit = request.form.get('limit')
     page_num = request.form.get('pageNum')
     if page_num is None:
         page_num = 1
@@ -110,25 +109,29 @@ def main_face_list():
     logger.info("recognition_state:" + str(recognition_state))
 
     offset = (int(page_num) - 1) * int(page_size)
-    search_res = main_avatar_v1.query(
-        expr="recognition_state == '" + recognition_state + "'",
-        offset=offset,
-        limit=page_size,
-        output_fields=["object_id", "hdfs_path", "quality_score", "recognition_state"]
-    )
+
+    body = {
+        "from": offset,
+        "size": page_size,
+        "query": {
+            "term": {
+                "recognition_state": recognition_state
+            }
+        },
+        "_source": ["object_id", "hdfs_path", "quality_score", "recognition_state"]
+    }
+
+    search_res = es_client.search(index=main_avatar_v1_index, body=body)
 
     search_result = []
-    for single in search_res:
+    for hit in search_res['hits']['hits']:
         tmp = {
-            # 'primary_key': single.id,
-            'id': single['id'],
-            'object_id': single['object_id'],
-            'hdfs_path': single['hdfs_path'],
-            'quality_score': str(single['quality_score']),
-            'recognition_state': single['recognition_state'],
-
+            'id': hit['_id'],
+            'object_id': hit['_source']['object_id'],
+            'hdfs_path': hit['_source']['hdfs_path'],
+            'quality_score': str(hit['_source']['quality_score']),
+            'recognition_state': hit['_source']['recognition_state'],
         }
-        # get_search_result(single.id, single.entity.user_id, single.score)
         search_result.append(tmp)
 
     logger.info('搜索耗时: ' + str(time.time() - start))
@@ -238,75 +241,66 @@ def compute_sha256():
 @app.route('/api/ability/insert_main_avatar', methods=['POST'])
 def insert_main_avatar():
     """
-    插入主人像库
+    Insert main avatar into Elasticsearch
     :rtype: result
     """
-
     result = {
         "code": 0,
         "msg": "success",
     }
-    # 验证参数
+    # Validate parameters
     validate_result = main_avatar_service.validate_parameter(request)
     if validate_result["code"] < 0:
         return jsonify(validate_result)
 
     score = request.form.get('score')
     if score is None:
-        score = 0.4
+        score = 0.6
 
-    # 验证图片是否符合要求
+    # Validate image
     avatar_image = cv_imread(request.files['file'])
-
     validate_image_result = main_avatar_service.validate_image(avatar_image, face_model)
     if not validate_image_result["validate"]:
         result["code"] = -1
         result["msg"] = validate_image_result["message"]
         return jsonify(result)
 
-    # 批量检索人脸图片， 每张人脸图片只能有一张人脸
-    search_params = {
-        "metric_type": "IP",
-        "ignore_growing": False,
-        "params": {"nprobe": 10}
-    }
-    start = time.time()
-    # 检索主人像， 看是否存在相同的主头像
-    res = core_service.search_face_image(face_model, main_avatar_v1, [avatar_image],
-                                         enhance=False, score=float(score), limit=10,
-                                         search_params=search_params)
+        # 检索主人像， 看是否存在相同的主头像
+    res = elasticsearch_service.search_face_image(face_model, main_avatar_v1_index, avatar_image, enhance=False,
+                                                  score=float(score),
+                                                  start=0, size=10)
     object_id = request.form.get('objectId')
     hdfs_path = request.form.get('hdfsPath')
+
     logger.info('主头像: ' + str(res))
-    if len(res[0]) > 0:
+    if len(res['hits']['hits']) > 0:
         result["code"] = -1
         result["msg"] = "主头像已存在"
         logger.info(f"主头像已存在 {object_id}, HDFS_PATH: {hdfs_path}")
         return jsonify(result)
 
-    avatar_align_face = face_model.extract_face(avatar_image, enhance=False,
-                                                confidence=0.99)
+    # Get embedding
+    avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
     face_score = face_model.tface.forward(avatar_align_face[0])
+    embedding = face_model.turn2embeddings(avatar_image, enhance=False, aligned=False, confidence=0.99)
+    embedding = core_service.squeeze_faces(embedding)[0]
 
-    entities = [[], [], [], [], [], []]
+    # Prepare data for Elasticsearch
+    body = {
+        "id": object_id,
+        "object_id": object_id,
+        "embedding": embedding.tolist(),
+        "hdfs_path": hdfs_path,
+        "quality_score": face_score,
+        "recognition_state": "identification"
+    }
 
-    entities[0].append(object_id)
-    entities[1].append(object_id)
-
-    embedding = face_model.turn2embeddings(avatar_image, enhance=False, aligned=False,
-                                           confidence=0.99)
-    entities[2].append(core_service.squeeze_faces(embedding)[0])
-    entities[3].append(hdfs_path)
-    entities[4].append(face_score)
-    entities[5].append("identification")
-
-    main_avatar_res = main_avatar_v1.insert(entities)
-
-    logger.info('插入结果耗时: ' + str(time.time() - start))
-    logger.info("主人像插入结果: " + str(main_avatar_res))
+    # Insert into Elasticsearch
+    res = es_client.index(index=main_avatar_v1_index, id=object_id, body=body)
+    logger.info(f"Insert main face {object_id} to Elasticsearch. {res}")
 
     result["objectId"] = object_id
-    result['msg'] = "插入成功"
+    result['msg'] = "Insert successful"
     result['qualityScore'] = str(float(face_score))
     return jsonify(result)
 
@@ -322,7 +316,7 @@ def update_main_avatar():
         "code": 0,
         "msg": "success",
     }
-    # 验证参数
+    # Validate parameters
     validate_result = main_avatar_service.validate_parameter(request)
     if validate_result["code"] < 0:
         return jsonify(validate_result)
@@ -340,37 +334,32 @@ def update_main_avatar():
         else:
             force = False
 
-    # 验证图片是否符合要求
+    # Validate image
     avatar_image = cv_imread(request.files['file'])
-
     validate_image_result = main_avatar_service.validate_image(avatar_image, face_model)
     if not validate_image_result["validate"]:
         result["code"] = -1
         result["msg"] = validate_image_result["message"]
         return jsonify(result)
 
-    # 批量检索人脸图片， 每张人脸图片只能有一张人脸
-    search_params = {
-        "metric_type": "IP",
-        "ignore_growing": False,
-        "params": {"nprobe": 10}
-    }
-    start = time.time()
-    # 检索主人像， 看是否存在相同的主头像
-    res = core_service.search_face_image(face_model, main_avatar_v1, [avatar_image],
-                                         enhance=False, score=float(score), limit=10,
-                                         search_params=search_params)
+    # Prepare data for Elasticsearch
     object_id = request.form.get('objectId')
     hdfs_path = request.form.get('hdfsPath')
-    if len(res[0]) == 0:
+
+    # Search for the main avatar in Elasticsearch
+    res = elasticsearch_service.search_face_image(face_model, main_avatar_v1_index, avatar_image, enhance=False,
+                                                  score=float(score),
+                                                  start=0, size=10)
+
+    if len(res['hits']['hits']) == 0:
         result["code"] = -1
         result["msg"] = "该人员主头像不存在，无法更新"
         logger.info(f"该人员主头像不存在，无法更新 {object_id}, HDFS_PATH: {hdfs_path}")
         return jsonify(result)
 
-    logger.info(f"已存在的主头像信息 {res[0]}")
+    logger.info(f"已存在的主头像信息 {res['hits']['hits'][0]}")
 
-    exist_object_id = res[0][0]['object_id']
+    exist_object_id = res['hits']['hits'][0]['_source']['object_id']
     if exist_object_id != object_id:
         result["code"] = -1
         result["msg"] = "该人员主头像已存在，但是人员ID不一致，无法更新"
@@ -382,32 +371,36 @@ def update_main_avatar():
     face_score = face_model.tface.forward(avatar_align_face[0])
     logger.info(f"{object_id} 人员新头像质量得分 {face_score}")
 
-    # 判断是否需要更新
-    if not force and float(face_score) < float(res[0][0]['quality_score']):
+    # Check if update is needed
+    if not force and float(face_score) < float(res['hits']['hits'][0]['_source']['quality_score']):
         result["code"] = -1
         result["msg"] = "该人员主头像质量得分低于已存在主头像，无法更新"
         logger.info(f"该人员主头像质量得分低于已存在主头像，无法更新 {object_id}, HDFS_PATH: {hdfs_path}")
         return jsonify(result)
 
-    entities = [[], [], [], [], [], []]
+    # Get embedding
+    avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
+    face_score = face_model.tface.forward(avatar_align_face[0])
+    embedding = face_model.turn2embeddings(avatar_image, enhance=False, aligned=False, confidence=0.99)
+    embedding = core_service.squeeze_faces(embedding)[0]
 
-    entities[0].append(object_id)
-    entities[1].append(object_id)
+    body = {
+        "doc": {
+            "id": object_id,
+            "object_id": object_id,
+            "embedding": embedding.tolist(),
+            "hdfs_path": hdfs_path,
+            "quality_score": face_score,
+            "recognition_state": "identification"
+        }
+    }
 
-    embedding = face_model.turn2embeddings(avatar_image, enhance=False, aligned=False,
-                                           confidence=0.99)
-    entities[2].append(core_service.squeeze_faces(embedding)[0])
-    entities[3].append(hdfs_path)
-    entities[4].append(face_score)
-    entities[5].append("identification")
-
-    main_avatar_res = main_avatar_v1.insert(entities)
-
-    logger.info('更新结果耗时: ' + str(time.time() - start))
-    logger.info("主人像更新结果: " + str(main_avatar_res))
+    # Update in Elasticsearch
+    res = es_client.update(index=main_avatar_v1_index, id=object_id, body=body)
+    logger.info(f"Update main face {object_id} in Elasticsearch. {res}")
 
     result["objectId"] = object_id
-    result['msg'] = "更新成功"
+    result['msg'] = "Update successful"
     result['qualityScore'] = str(float(face_score))
     return jsonify(result)
 
@@ -429,7 +422,6 @@ def update_main_avatar_object():
     if recognition_state is None:
         recognition_state = 'identification'
 
-
     new_object_id = request.form.get('newObjectId')
 
     if recognition_state != 'identification' and recognition_state != 'unidentification':
@@ -437,36 +429,30 @@ def update_main_avatar_object():
         result["msg"] = "recognitionState is error, value must be identification or unidentification"
         return jsonify(result)
 
-    search_res = main_avatar_v1.query(
-        expr="id == '" + object_id + "'",
-        limit=1,
-        output_fields=["object_id", "hdfs_path", "embedding", "quality_score", "recognition_state"]
-    )
+    # Search for the main avatar in Elasticsearch
+    search_res = es_client.get(index=main_avatar_v1_index, id=object_id)
 
-    logger.info(f"search_res: {search_res}")
-
-    if len(search_res) == 0:
+    if not search_res['found']:
         logger.info(f"object_id: {object_id} not found")
         result["code"] = -1
         result["msg"] = "object_id not found"
         return jsonify(result)
 
-    for single in search_res:
-        entities = [[], [], [], [], [], []]
+    # Prepare data for Elasticsearch
+    body = {
+        "doc": {
+            "id": object_id,
+            "object_id": new_object_id if new_object_id else search_res['_source']['object_id'],
+            "embedding": search_res['_source']['embedding'],
+            "hdfs_path": search_res['_source']['hdfs_path'],
+            "quality_score": search_res['_source']['quality_score'],
+            "recognition_state": recognition_state
+        }
+    }
 
-        entities[0].append(object_id)
-        if new_object_id is None:
-            entities[1].append(single['object_id'])
-        else:
-            entities[1].append(new_object_id)
-        entities[2].append(single['embedding'])
-        entities[3].append(single['hdfs_path'])
-        entities[4].append(single['quality_score'])
-        entities[5].append(recognition_state)
-
-        main_avatar_res = main_avatar_v1.upsert(entities)
-        logger.info(f"main_avatar_res: {main_avatar_res}")
-        logger.info(f"object_id: {object_id} update recognition_state to {recognition_state}")
+    # Update in Elasticsearch
+    res = es_client.update(index=main_avatar_v1_index, id=object_id, body=body)
+    logger.info(f"Update main face {object_id} in Elasticsearch. {res}")
 
     result["objectId"] = object_id
     result['msg'] = "更新成功"
@@ -577,61 +563,6 @@ def face_predict():
         uuid_filename = generator.generate_unique_value()
         logger.info("uuid_filename: " + uuid_filename)
 
-        dir_path = face_predict_dir + uuid_filename + ".jpg"
-        file.save(dir_path)  # Replace with the path where you want to save the file
-
-        img1 = cv_imread(dir_path)
-
-        # 批量检索人脸图片， 每张人脸图片只能有一张人脸
-        imgs = [img1]
-        start = time.time()
-
-        search_params = {
-            "metric_type": "IP",
-            "offset": offset,
-            "ignore_growing": False,
-            "params": {"nprobe": 50}
-        }
-        res = core_service.search_face_image(face_model, image_faces_v1, imgs,
-                                             enhance=False, score=float(score), limit=int(page_size),
-                                             search_params=search_params)
-
-        logger.info('搜索耗时: ' + str(time.time() - start))
-        logger.info(f"搜索结果: {res}")
-        result['res'] = res
-    else:
-        result["code"] = -1
-        result["msg"] = "File uploaded Failure!"
-    return jsonify(result)
-
-
-@app.route('/api/ability/es/face_predict', methods=['POST'])
-def es_face_predict():
-    result = {
-        "code": 0,
-        "msg": "success",
-    }
-    file = request.files['file']  # Assuming the file input field is named 'file'
-    score = request.form.get('score')
-    if score is None:
-        score = 0.4
-    # limit = request.form.get('limit')
-    page_num = request.form.get('pageNum')
-    if page_num is None:
-        page_num = 1
-    page_size = request.form.get('pageSize')
-    if page_size is None:
-        page_size = 10
-    logger.info("score:" + str(score))
-    logger.info("page_num:" + str(page_num))
-    logger.info("page_size:" + str(page_size))
-
-    offset = (int(page_num) - 1) * int(page_size)
-
-    if file:
-        uuid_filename = generator.generate_unique_value()
-        logger.info("uuid_filename: " + uuid_filename)
-
         dir_path = face_predict_dir + '/' + uuid_filename + ".jpg"
         file.save(dir_path)  # Replace with the path where you want to save the file
 
@@ -678,29 +609,19 @@ def main_face_predict():
         uuid_filename = generator.generate_unique_value()
         logger.info("uuid_filename: " + uuid_filename)
 
-        dir_path = face_predict_dir + uuid_filename + ".jpg"
-        logger.info("dir_path: " + dir_path)
+        dir_path = face_predict_dir + '/' + uuid_filename + ".jpg"
         file.save(dir_path)  # Replace with the path where you want to save the file
 
-        img1 = cv_imread(dir_path)
+        image = cv_imread(dir_path)
 
-        # 批量检索人脸图片， 每张人脸图片只能有一张人脸
-        imgs = [img1]
         start = time.time()
 
-        search_params = {
-            "metric_type": "IP",
-            "offset": offset,
-            "ignore_growing": False,
-            "params": {"nprobe": 50}
-        }
-        res = core_service.search_main_face_image(face_model, main_avatar_v1, imgs,
-                                                  enhance=False, score=float(score), limit=int(page_size),
-                                                  search_params=search_params)
+        res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, image, enhance=False,
+                                                           score=float(score), start=offset, size=int(page_size))
 
         logger.info('搜索耗时: ' + str(time.time() - start))
         logger.info(f"搜索结果: {res}")
-        result['res'] = res
+        result['res'] = [res]
     else:
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
@@ -746,32 +667,42 @@ def content_video_predict():
         start = time.time()
         search_vectors = video_model.get_frame_embedding_path(dir_path)
 
-        res = content_frame_v1.search([search_vectors], 'embedding', search_params, limit=int(page_size),
-                                    output_fields=['hdfs_path', 'earliest_video_id'])
-        frame_result = []
-        for one in res:
-            _result = []
-            for single in one:
-                # print(single)
-                earliest_video_id = ""
-                if single.entity.earliest_video_id is not None:
-                    earliest_video_id = str(single.entity.earliest_video_id).split("_")[0]
-                tmp = {
-                    # 'primary_key': single.id,
-                    'id': single.entity.id,
-                    'score': normalized_euclidean_distance(single.distance),
-                    'hdfs_path': single.entity.hdfs_path,
-                    'earliest_video_id': earliest_video_id
+        body = {
+            "from": offset,
+            "size": page_size,
+            "query": {
+                "script_score": {
+                    "query": {
+                        "match_all": {}
+                    },
+                    "script": {
+                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
+                        "params": {
+                            "query_vector": search_vectors
+                        }
+                    }
                 }
-                # get_search_result(single.id, single.entity.user_id, single.score)
-                _result.append(tmp)
-            frame_result.append(_result)
+            }
+        }
+        search_result = []
+        frame_result = es_client.search(index=content_frames_v1_index, body=body)
+        search_res = frame_result['hits']['hits']
+        for single in search_res:
+            earliest_video_id = ""
+            if single['_source']['earliest_video_id'] is not None:
+                earliest_video_id = str(single['_source']['earliest_video_id']).split("_")[0]
+            tmp = {
+                'id': single['_source']['id'],
+                'score': normalized_euclidean_distance(single['_score']),
+                'hdfs_path': single['_source']['hdfs_path'],
+                'earliest_video_id': earliest_video_id
+            }
+            search_result.append(tmp)
+
         print('搜索耗时: ' + str(time.time() - start))
         print("搜索结果: ")
-        print(res)
-        print("搜索结果 res[0]: ")
-        print(res[0])
-        result['res'] = frame_result
+        print(search_res)
+        result['res'] = [search_result]
     else:
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
@@ -817,29 +748,39 @@ def video_predict():
         start = time.time()
         search_vectors = video_model.get_frame_embedding_path(dir_path)
 
-        res = video_frame_v1.search([search_vectors], 'embedding', search_params, limit=int(page_size),
-                                      output_fields=['hdfs_path', 'earliest_video_id'])
-        frame_result = []
-        for one in res:
-            _result = []
-            for single in one:
-                # print(single)
-                tmp = {
-                    # 'primary_key': single.id,
-                    'id': single.entity.id,
-                    'score': normalized_euclidean_distance(single.distance),
-                    'hdfs_path': single.entity.hdfs_path,
-                    'earliest_video_id': single.entity.earliest_video_id
+        body = {
+            "from": offset,
+            "size": page_size,
+            "query": {
+                "script_score": {
+                    "query": {
+                        "match_all": {}
+                    },
+                    "script": {
+                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
+                        "params": {
+                            "query_vector": search_vectors
+                        }
+                    }
                 }
-                # get_search_result(single.id, single.entity.user_id, single.score)
-                _result.append(tmp)
-            frame_result.append(_result)
+            }
+        }
+        search_result = []
+        frame_result = es_client.search(index=video_frames_v1_index, body=body)
+        search_res = frame_result['hits']['hits']
+        for single in search_res:
+            tmp = {
+                'id': single['_source']['id'],
+                'score': normalized_euclidean_distance(single['_score']),
+                'hdfs_path': single['_source']['hdfs_path'],
+                'earliest_video_id': single['_source']['earliest_video_id']
+            }
+            search_result.append(tmp)
+
         print('搜索耗时: ' + str(time.time() - start))
         print("搜索结果: ")
-        print(res)
-        print("搜索结果 res[0]: ")
-        print(res[0])
-        result['res'] = frame_result
+        print(search_res)
+        result['res'] = [search_result]
     else:
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"

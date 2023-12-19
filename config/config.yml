@@ -30,6 +30,13 @@ milvus:
   default_password: Milvus # milvus default password
   password: LWlZ#s0zgX12D1#z
 
+elasticsearch:
+  host: 192.168.38.87
+  port: 9200
+  username: elastic
+  password: LWlZ#s0zgX12D1#z
+
+
 video_app:
   model_path: /home/lyc/Downloads/roberta_zh_l12
   log_file: video_app.log
@@ -37,11 +44,11 @@ video_app:
 face_app:
   model_path: /home/lyc/Downloads/roberta_zh_l12
   log_file: face_app.log
-  image_face_collection: jack_image_faces_v3
-  main_avatar_collection: jack_main_avatars_v3
-  content_face_collection: jack_content_faces_v3
-  video_frame_collection: jack_video_frame_v3
-  content_frame_collection: jack_content_frame_v3
+  image_face_collection: image_faces_v1
+  main_avatar_collection: main_avatars_v1
+  content_face_collection: content_faces_v1
+  video_frame_collection: video_frame_v3
+  content_frame_collection: content_frame_v3
   hdfs_prefix: "/VIDEO_FACE_TEST"
   face_predict_dir: "/tmp/face_predict_tmp"
   video_id_file_path: "/home/gpu6/video-face-project/need_upload_hdfs"
