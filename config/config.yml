@@ -31,7 +31,8 @@ milvus:
   password: LWlZ#s0zgX12D1#z
 
 elasticsearch:
-  host: 192.168.38.87
+#  host: 192.168.38.87
+  host: 10.10.38.72
   port: 9200
   username: elastic
   password: LWlZ#s0zgX12D1#z

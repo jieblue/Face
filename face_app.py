@@ -8,7 +8,8 @@ from entity.union_result import UnionResult
 from model.model_video import VideoModel
 from service.core_service import *
 from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service
-from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index
+from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index, \
+    content_frames_v1_index
 from service.milvus_service import image_faces_v1, main_avatar_v1, video_frame_v1, content_frame_v1
 from utils import log_util
 from utils.img_util import *
@@ -266,14 +267,14 @@ def insert_main_avatar():
         return jsonify(result)
 
         # 检索主人像， 看是否存在相同的主头像
-    res = elasticsearch_service.search_face_image(face_model, main_avatar_v1_index, avatar_image, enhance=False,
+    search_main_face_res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, avatar_image, enhance=False,
                                                   score=float(score),
                                                   start=0, size=10)
     object_id = request.form.get('objectId')
     hdfs_path = request.form.get('hdfsPath')
 
-    logger.info('主头像: ' + str(res))
-    if len(res['hits']['hits']) > 0:
+    logger.info('主头像: ' + str(search_main_face_res))
+    if len(search_main_face_res) > 0:
         result["code"] = -1
         result["msg"] = "主头像已存在"
         logger.info(f"主头像已存在 {object_id}, HDFS_PATH: {hdfs_path}")
@@ -289,7 +290,7 @@ def insert_main_avatar():
     body = {
         "id": object_id,
         "object_id": object_id,
-        "embedding": embedding.tolist(),
+        "embedding": embedding,
         "hdfs_path": hdfs_path,
         "quality_score": face_score,
         "recognition_state": "identification"
@@ -650,11 +651,6 @@ def content_video_predict():
         page_size = 10
 
     offset = (int(page_num) - 1) * int(page_size)
-    search_params = {
-        "metric_type": "L2",
-        "offset": offset,
-        "params": {"nprobe": 20},
-    }
 
     if file:
         uuid_filename = generator.generate_unique_value()
@@ -721,8 +717,7 @@ def video_predict():
     file = request.files['file']  # Assuming the file input field is named 'file'
     score = request.form.get('score')
     if score is None:
-        score = 0.4
-    # limit = request.form.get('limit')
+        score = 0.6
     page_num = request.form.get('pageNum')
     if page_num is None:
         page_num = 1
@@ -731,11 +726,6 @@ def video_predict():
         page_size = 10
 
     offset = (int(page_num) - 1) * int(page_size)
-    search_params = {
-        "metric_type": "L2",
-        "offset": offset,
-        "params": {"nprobe": 20},
-    }
 
     if file:
         uuid_filename = generator.generate_unique_value()
@@ -770,7 +760,7 @@ def video_predict():
         search_res = frame_result['hits']['hits']
         for single in search_res:
             tmp = {
-                'id': single['_source']['id'],
+                'id': single['_id'],
                 'score': normalized_euclidean_distance(single['_score']),
                 'hdfs_path': single['_source']['hdfs_path'],
                 'earliest_video_id': single['_source']['earliest_video_id']

@@ -146,34 +146,20 @@ def get_face_quality_single_img(model: Face_Onnx, image_path):
 
 
 def grouping_face(face_embedding_list: List[FaceKeyFrameEmbedding], threshold=0.55):
-    # input is a list of face, every face is a dict {id:....., embedding: .....}
-    # return is a list, containing some list, [[face1, face2, ], [....]....]
     res = []
     for face_embedding_info in face_embedding_list:
-        is_duplicate = False
+        max_score, need_insert_index = -1, -1
         for i, single in enumerate(res):
-            if cul_similarity(single[0].embedding,
-                              face_embedding_info.embedding) > threshold:
-                res[i].append(face_embedding_info)
-                is_duplicate = True
-                break
+            for current_face in single:
+                similarity_score = cul_similarity(current_face.embedding, face_embedding_info.embedding)
+                if current_face.key_id != face_embedding_info.key_id and similarity_score > threshold and similarity_score > max_score:
+                    need_insert_index, max_score = i, similarity_score
+                    logger.info(f"Grouping face {current_face.key_id} and face {face_embedding_info.key_id} similarity is {similarity_score}")
+        res[need_insert_index].append(face_embedding_info) if need_insert_index != -1 and max_score > threshold else res.append([face_embedding_info])
 
-        if not is_duplicate:
-            res.append([face_embedding_info])
-
-    # 分组完成后， 每组比较得分最高的人脸作为主人像， 只保留最高的人脸
-    result_list = []
-    for i, single in enumerate(res):
-        max_score = 0
-        max_index = 0
-        for j, face_embedding_info in enumerate(single):
-            if face_embedding_info.quantity_score > max_score:
-                max_score = face_embedding_info.quantity_score
-                max_index = j
-        logger.info(f"Grouping face {i} max score is {max_score}, face_embedding_info  is "
-                    f"{single[max_index].to_dict()}")
-        result_list.append(single[max_index])
-
+    result_list = [max(single, key=lambda face_embedding_info: face_embedding_info.quantity_score) for single in res]
+    for i, face_embedding_info in enumerate(result_list):
+        logger.info(f"Grouping face {i} max score is {face_embedding_info.quantity_score}, face_embedding_info  is {face_embedding_info.to_dict()}")
     return result_list
 
 
