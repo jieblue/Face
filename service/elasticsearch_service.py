@@ -9,7 +9,6 @@ from entity.milvus_entity import FaceKeyFrameEmbedding, MainFaceKeyFrameEmbeddin
 from model.model_onnx import Face_Onnx
 from utils import log_util
 
-
 logger = log_util.get_logger(__name__)
 conf = get_config()
 
@@ -45,7 +44,7 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
         logger.info(f"Insert face embedding for video {file_data.video_id}")
     elif file_data.tag == 'content':
         index_name = content_faces_v1_index
-        logger.info(f"Insert face embedding for content {file_data.content_id}")
+        logger.info(f"Insert face embedding for content {file_data.video_id}")
 
     if index_name is None:
         raise ValueError(f"Index is None, Invalid tag: {file_data.tag}")
@@ -98,7 +97,6 @@ def main_face_election(face_frame_embedding_info):
             main_face_info.quantity_score = face_frame_embedding_info.quantity_score
             main_face_info.embedding = face_frame_embedding_info.embedding
             main_face_info.hdfs_path = face_frame_embedding_info.hdfs_path
-            main_face_info.object_id = face_frame_embedding_info.key_id
 
             face_frame_embedding_info.object_id = main_face_info.key_id
             update_result = update_main_face(main_face_info)
@@ -258,6 +256,47 @@ def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, s
     return result
 
 
+def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
+    embedding = model.turn2embeddings(image, enhance=enhance)
+
+    body = {
+        "from": start,
+        "size": size,
+        "query": {
+            "script_score": {
+                "query": {
+                    "match_all": {}
+                },
+                "script": {
+                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
+                    "params": {
+                        "query_vector": embedding[0]
+                    }
+                }
+            }
+        }
+    }
+    result = []
+    search_res = es_client.search(index=index_name, body=body)
+    search_res = search_res['hits']['hits']
+    for one in search_res:
+        current_score = one['_score'] - 1000
+        if current_score >= score:
+            logger.info(f"Search single result: {one} and score is {current_score}")
+            tmp = {
+                'id': one['_id'],
+                'object_id': one['_source']['object_id'],
+                'hdfs_path': one['_source']['hdfs_path'],
+                'score': current_score,
+                'quality_score': one['_source']['quality_score'],
+                'recognition_state': one['_source']['recognition_state']
+            }
+
+            result.append(tmp)
+
+    return result
+
+
 def insert_frame_embedding(file_data: Any, key_frame_embedding_list: List[KeyFrameEmbedding]):
     actions = []
     index_name = None
@@ -266,7 +305,7 @@ def insert_frame_embedding(file_data: Any, key_frame_embedding_list: List[KeyFra
         logger.info(f"Insert frame embedding for video {file_data.video_id}")
     elif file_data.tag == 'content':
         index_name = content_frames_v1_index
-        logger.info(f"Insert frame embedding for content {file_data.content_id}")
+        logger.info(f"Insert frame embedding for content {file_data.video_id}")
 
     if index_name is None:
         raise ValueError(f"Index is None, Invalid tag: {file_data.tag}")

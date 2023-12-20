@@ -72,7 +72,7 @@ def process_key_frame(file_data: Any, key_frame_list: List[KeyFrame], face_frame
 
     face_embedding_list_result = []
     for face_embedding in face_frame_embedding_list:
-        if face_embedding.key_id == "notgoodface":
+        if face_embedding.object_id != "notgoodface":
             face_embedding_list_result.append(face_embedding.to_dict())
 
     return key_frame_embedding_list_result, face_embedding_list_result
