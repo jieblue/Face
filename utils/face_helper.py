@@ -38,24 +38,17 @@ def align_face(img, landmark, face_size, border_mode = 'constant',save_path=None
 
 
 def squeeze_faces(faces_list, threshold=0.48):
-    faces = np.array(faces_list)
     _len = len(faces_list)
-
-    #numpy to tensor
-    faces_tensor = torch.from_numpy(faces).float()
     unique_vectors = []
     # ids = []
-    for i, vector in enumerate(faces_tensor):
+    for i, vector in enumerate(faces_list):
 
         # 检查是否与之前的向量重复
         is_duplicate = False
-        vector_tensor = vector.unsqueeze(0)
-        # print(vector_tensor.size())
         for x in unique_vectors:
-            x_tensor = x.unsqueeze(0)
             # print(x_tensor.size())
             # 计算余弦相似度
-            if torch.nn.functional.cosine_similarity(vector_tensor, x_tensor) > threshold:
+            if cul_similarity(vector, x) > threshold:
                 is_duplicate = True
                 break
 
@@ -63,9 +56,7 @@ def squeeze_faces(faces_list, threshold=0.48):
             unique_vectors.append(vector)
             # ids.append(i)
 
-    numpy_list = [t.unsqueeze(0).numpy().astype(np.float32).tolist()[0] for t in unique_vectors]
-    # 从有范数的向量列表中提取没有范数的向量列表.astype(np.float32)
-    return numpy_list
+    return unique_vectors
 
 
 def grouping_face(faces_list, threshold=0.55):
@@ -91,8 +82,8 @@ def cul_similarity(face_x, face_y):
     # list 2 numpy
     np_fx = np.array(face_x)
     np_fy = np.array(face_y)
-
-    #numpy to tensor
-    t_fx = torch.from_numpy(np_fx).float().unsqueeze(0)
-    t_fy = torch.from_numpy(np_fy).float().unsqueeze(0)
-    return torch.nn.functional.cosine_similarity(t_fx, t_fy)
+    return np.dot(np_fx, np_fy)
+    # #numpy to tensor
+    # t_fx = torch.from_numpy(np_fx).float().unsqueeze(0)
+    # t_fy = torch.from_numpy(np_fy).float().unsqueeze(0)
+    # return torch.nn.functional.cosine_similarity(t_fx, t_fy)
