@@ -688,7 +688,7 @@ def content_video_predict():
             if single['_source']['earliest_video_id'] is not None:
                 earliest_video_id = str(single['_source']['earliest_video_id']).split("_")[0]
             tmp = {
-                'id': single['_source']['id'],
+                'id': single['_id'],
                 'score': normalized_euclidean_distance(single['_score']),
                 'hdfs_path': single['_source']['hdfs_path'],
                 'earliest_video_id': earliest_video_id
