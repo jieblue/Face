@@ -152,14 +152,17 @@ def grouping_face(face_embedding_list: List[FaceKeyFrameEmbedding], threshold=0.
         for i, single in enumerate(res):
             for current_face in single:
                 similarity_score = cul_similarity(current_face.embedding, face_embedding_info.embedding)
-                if current_face.key_id != face_embedding_info.key_id and similarity_score > threshold and similarity_score > max_score:
+                if (current_face.key_id != face_embedding_info.key_id and similarity_score > threshold
+                        and similarity_score > max_score):
                     need_insert_index, max_score = i, similarity_score
-                    logger.info(f"Grouping face {current_face.key_id} and face {face_embedding_info.key_id} similarity is {similarity_score}")
+                    logger.info(f"Grouping face {current_face.key_id} and "
+                                f"face {face_embedding_info.key_id} similarity is {similarity_score}")
         res[need_insert_index].append(face_embedding_info) if need_insert_index != -1 and max_score > threshold else res.append([face_embedding_info])
 
     result_list = [max(single, key=lambda face_embedding_info: face_embedding_info.quantity_score) for single in res]
     for i, face_embedding_info in enumerate(result_list):
-        logger.info(f"Grouping face {i} max score is {face_embedding_info.quantity_score}, face_embedding_info  is {face_embedding_info.to_dict()}")
+        logger.info(f"Grouping face {i} max score is {face_embedding_info.quantity_score}, face_embedding_info "
+                    f"is {face_embedding_info.to_dict()}")
     return result_list
 
 
@@ -167,8 +170,4 @@ def cul_similarity(face_x, face_y):
     # list 2 numpy
     np_fx = np.array(face_x)
     np_fy = np.array(face_y)
-
-    # numpy to tensor
-    t_fx = torch.from_numpy(np_fx).float().unsqueeze(0)
-    t_fy = torch.from_numpy(np_fy).float().unsqueeze(0)
-    return torch.nn.functional.cosine_similarity(t_fx, t_fy)
+    return np.dot(np_fx, np_fy)
