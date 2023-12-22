@@ -31,8 +31,8 @@ milvus:
   password: LWlZ#s0zgX12D1#z
 
 elasticsearch:
-#  host: 192.168.38.87
-  host: 10.10.38.72
+  host: 192.168.38.87
+#  host: 10.10.38.72
   port: 9200
   username: elastic
   password: LWlZ#s0zgX12D1#z
@@ -45,10 +45,10 @@ video_app:
 face_app:
   model_path: /home/lyc/Downloads/roberta_zh_l12
   log_file: face_app.log
-  image_face_collection: image_faces_v1
-  main_avatar_collection: main_avatars_v1
+  image_face_collection: jack_image_faces_v1
+  main_avatar_collection: jack_main_avatars_v1
   content_face_collection: content_faces_v1
-  video_frame_collection: video_frame_v3
+  video_frame_collection: jack_video_frame_v3
   content_frame_collection: content_frame_v3
   hdfs_prefix: "/VIDEO_FACE_TEST"
   face_predict_dir: "/tmp/face_predict_tmp"

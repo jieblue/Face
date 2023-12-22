@@ -52,7 +52,7 @@ logger = log_util.get_logger(__name__)
 
 # 加载人脸模型 加载模型会耗时比较长
 face_model = Face_Onnx(conf['model'], gpu_id=0)
-video_model = VideoModel('./config/weights/ResNet50.onnx', gpu_id=0)
+video_model = VideoModel('./config/weights/ResNet512.onnx', gpu_id=0)
 logger.info("Video model loaded successfully")
 
 key_frames_path = './keyframes'
@@ -504,20 +504,20 @@ def image_vectorization_v3() -> Response:
     try:
 
         json_data = request.get_json()
-        logger.info(f"face_vectorization json_data: {json_data}")
+        logger.info(f"image_vectorization json_data: {json_data}")
         image_path = json_data["imagePath"]
         image_id = json_data["imageId"]
         file_name = json_data["fileName"]
         tag = json_data["tag"]
         file_name = image_id
-        image_file = ImageFile(file_name=file_name, file_path=image_path, image_id=image_id, tag=tag)
+        image_file = ImageFile(file_name=file_name, file_path=image_path, video_id=image_id, tag=tag)
 
         key_frame_list, face_frame_embedding_list = video_service_v3.process_image_file(image_file)
         data = {
             "key_frame_list": key_frame_list,
             "face_frame_embedding_list": face_frame_embedding_list
         }
-        result = UnionResult(code=0, msg="face_vectorization success", data=data)
+        result = UnionResult(code=0, msg="image_vectorization success", data=data)
         json_result = {
             "code": result.code,
             "msg": result.msg,
@@ -526,9 +526,9 @@ def image_vectorization_v3() -> Response:
         return jsonify(json_result)
 
     except Exception as e:
-        logger.error("face_vectorization error", e)
+        logger.error("image_vectorization error", e)
         # handle the exception
-        result = UnionResult(code=-100, msg="vectorization_v3 error" + str(e), data=None)
+        result = UnionResult(code=-100, msg="image_vectorization v3 error" + str(e), data=None)
         json_result = {
             "code": result.code,
             "msg": result.msg,
@@ -780,7 +780,7 @@ def video_predict():
     return jsonify(result)
 
 
-def normalized_euclidean_distance(L2, dim=2048):
+def normalized_euclidean_distance(L2, dim=512):
     return 1 / (1 + L2 / dim)
 
 

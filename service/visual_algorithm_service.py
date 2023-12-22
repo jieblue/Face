@@ -20,7 +20,7 @@ conf = get_config()
 face_model = Face_Onnx(conf['model'], gpu_id=0)
 logger.info("Face model loaded successfully")
 
-video_model = VideoModel('./config/weights/ResNet50.onnx', gpu_id=0)
+video_model = VideoModel('./config/weights/ResNet512.onnx', gpu_id=0)
 logger.info("Video model loaded successfully")
 
 
@@ -45,7 +45,7 @@ def translate_frame_embedding(key_frame_list: List[KeyFrame]) -> List[KeyFrameEm
     frame_embedding_list = []
     for frame_info in key_frame_list:
         # 转换向量
-        frame_embedding = video_model.get_frame_embedding(frame_info.frame_stream.to_image())
+        frame_embedding = video_model.get_frame_embedding(frame_info.frame_stream)
 
         # 人员ID在主人像选举的时候进行添加， HDFS path， 关联的视频组， 在向量插入的时候进行关联
         key_frame_embedding = KeyFrameEmbedding(key_id=frame_info.key_id,
@@ -76,7 +76,8 @@ def translate_face_embedding(face_frame_list: List[FaceKeyFrame]) -> List[FaceKe
         face_frame_embedding = squeeze_faces(original_embedding)[0]
 
         # 人员ID在主人像选举的时候进行添加， HDFS path， 关联的视频组， 在向量插入的时候进行关联
-        face_key_frame_embedding = FaceKeyFrameEmbedding(key_id=face_frame_info.key_id,
+        face_key_frame_embedding = FaceKeyFrameEmbedding(tag=face_frame_info.tag,
+                                                         key_id=face_frame_info.key_id,
                                                          object_id=face_frame_info.key_id,
                                                          quantity_score=score,
                                                          embedding=face_frame_embedding,

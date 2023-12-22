@@ -54,6 +54,9 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
         if file_data.tag == 'video':
             main_face_election(face_frame_embedding)
         if float(face_frame_embedding.quantity_score) > 40:
+            earliest_video_id = face_frame_embedding.earliest_video_id
+            if file_data.tag == 'content' and earliest_video_id is not None:
+                earliest_video_id = str(earliest_video_id).split("_")[0]
             action = {
                 "_index": image_faces_v1_index,
                 "_id": face_frame_embedding.key_id,
@@ -64,8 +67,9 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
                     'hdfs_path': face_frame_embedding.hdfs_path,
                     'quality_score': face_frame_embedding.quantity_score,
                     'video_id_arr': face_frame_embedding.video_id_arr,
-                    'earliest_video_id': face_frame_embedding.earliest_video_id,
-                    'file_name': face_frame_embedding.file_name
+                    'earliest_video_id': earliest_video_id,
+                    'file_name': face_frame_embedding.file_name,
+                    'tag': file_data.tag
                 }
             }
             actions.append(action)
@@ -299,18 +303,22 @@ def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=Fal
 
 def insert_frame_embedding(file_data: Any, key_frame_embedding_list: List[KeyFrameEmbedding]):
     actions = []
+
     index_name = None
     if file_data.tag == 'video':
         index_name = video_frames_v1_index
         logger.info(f"Insert frame embedding for video {file_data.video_id}")
     elif file_data.tag == 'content':
-        index_name = content_frames_v1_index
+        index_name = video_frames_v1_index
         logger.info(f"Insert frame embedding for content {file_data.video_id}")
 
     if index_name is None:
         raise ValueError(f"Index is None, Invalid tag: {file_data.tag}")
 
     for key_frame_embedding in key_frame_embedding_list:
+        earliest_video_id = key_frame_embedding.earliest_video_id
+        if file_data.tag == 'content' and earliest_video_id is not None:
+            earliest_video_id = str(earliest_video_id).split("_")[0]
         action = {
             "_index": index_name,
             "_id": key_frame_embedding.key_id,
@@ -318,9 +326,11 @@ def insert_frame_embedding(file_data: Any, key_frame_embedding_list: List[KeyFra
                 'key_id': key_frame_embedding.key_id,
                 'embedding': key_frame_embedding.embedding,
                 'hdfs_path': key_frame_embedding.hdfs_path,
-                'earliest_video_id': key_frame_embedding.earliest_video_id
+                'earliest_video_id': earliest_video_id,
+                'tag': file_data.tag
             }
         }
+
         actions.append(action)
     res = bulk(es_client, actions)
     logger.info(f"KeyFrameEmbedding bulk insert result is {res}")

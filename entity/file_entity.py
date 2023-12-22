@@ -12,7 +12,8 @@ class VideoFile(FileData):
 
 
 class ImageFile(FileData):
-    def __init__(self, *, file_name, file_path, image_id, tag):
+    def __init__(self, *, file_name, file_path, video_id, tag):
         super().__init__(file_name, file_path)
-        self.image_id = image_id
+        self.video_id = video_id
+        self.image_id = video_id
         self.tag = tag

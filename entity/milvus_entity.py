@@ -1,6 +1,6 @@
 class FaceKeyFrameEmbedding:
 
-    def __init__(self, *, key_id, object_id, quantity_score, embedding, hdfs_path, video_id_arr, earliest_video_id,
+    def __init__(self, *, tag, key_id, object_id, quantity_score, embedding, hdfs_path, video_id_arr, earliest_video_id,
                  file_name, frame_num, timestamp, face_num):
         """
         初始化
@@ -16,6 +16,7 @@ class FaceKeyFrameEmbedding:
         :param timestamp: 时间戳
         :param face_num: 人脸序号
         """
+        self.tag = tag
         self.key_id = key_id
         self.object_id = object_id
         self.quantity_score = quantity_score
@@ -30,6 +31,7 @@ class FaceKeyFrameEmbedding:
 
     def to_dict(self):
         return {
+            "tag": self.tag,
             "key_id": self.key_id,
             "object_id": self.object_id,
             "quantity_score": str(float(self.quantity_score)),
@@ -41,6 +43,7 @@ class FaceKeyFrameEmbedding:
             "timestamp": self.timestamp,
             "face_num": self.face_num
         }
+
 
 class KeyFrameEmbedding:
     def __init__(self, *, key_id, embedding, hdfs_path, earliest_video_id,
@@ -75,6 +78,7 @@ class KeyFrameEmbedding:
             "file_name": self.file_name,
             "frame_num": self.frame_num,
             "timestamp": self.timestamp,
+
         }
 
 

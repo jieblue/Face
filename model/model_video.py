@@ -38,7 +38,8 @@ class VideoModel:
         #     self.model = tf.keras.applications.ResNet50(include_top=False, weights=None)
         #     self.model.load_weights(config)
 
-    def get_frame_embedding(self, frame_image):
+    def get_frame_embedding_byte(self, frame_image):
+
         # 提取每个帧的特征向量
         start_time = time.time()
         # 打开图像并进行预处理
@@ -58,9 +59,11 @@ class VideoModel:
         logger.info("Extract feature time: {}".format(end_time - start_time))
         return feature
 
-    def get_frame_embedding_path(self, frame_path):
+    def get_frame_embedding(self, frame_image):
         # 提取每个帧的特征向量
-        start_time = time.time()
         # 打开图像并进行预处理
-        image = Image.open(frame_path).convert("RGB")
-        return self.get_frame_embedding(image)
+        if isinstance(frame_image, str):
+            image = Image.open(frame_image).convert("RGB")
+            return self.get_frame_embedding_byte(image)
+        else:
+            return self.get_frame_embedding_byte(frame_image.to_image())
