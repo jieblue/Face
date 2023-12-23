@@ -39,7 +39,8 @@ class KeyFrame:
             "timestamp": self.timestamp,
             "video_id": self.video_id,
             "hdfs_path": self.hdfs_path,
-            "key_id": self.key_id
+            "key_id": self.key_id,
+            "tag": self.tag,
         }
 
 
@@ -69,5 +70,6 @@ class FaceKeyFrame:
             "video_id": self.video_id,
             "face_num": self.face_num,
             "hdfs_path": self.hdfs_path,
-            "key_id": self.key_id
+            "key_id": self.key_id,
+            "tag": self.tag,
         }

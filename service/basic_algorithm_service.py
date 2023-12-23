@@ -43,8 +43,8 @@ def extract_image_key_frame_list(image_file: ImageFile) -> List[KeyFrame]:
         if not os.path.isfile(file_path):
             continue
         np_frame = cv2.imread(file_path)
-        key_frame = KeyFrame(file_name=image_file.file_name, video_id=image_file.image_id, frame_num=1,
-                             timestamp=0, frame=np_frame, tag=image_file.tag)
+        key_frame = KeyFrame(file_name=image_file.file_name, video_id=image_file.image_id, frame_num=frame_num,
+                             timestamp=0, frame=np_frame, frame_stream=file_path, tag=image_file.tag)
         result.append(key_frame)
         frame_num = frame_num + 1
     return result
