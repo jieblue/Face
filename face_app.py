@@ -1,33 +1,18 @@
-import os.path
+import hashlib
 import time
+import traceback
 
 from flask import Flask, request, jsonify, Response
 
 from entity.file_entity import VideoFile, ImageFile
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
-from service.core_service import *
 from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service
+from service.core_service import *
 from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index, \
     content_frames_v1_index
-from service.milvus_service import image_faces_v1, main_avatar_v1, video_frame_v1, content_frame_v1
 from utils import log_util
 from utils.img_util import *
-from config.config import *
-from pymilvus import (
-    connections,
-    utility,
-    FieldSchema,
-    CollectionSchema,
-    DataType,
-    Collection,
-
-)
-import traceback
-
-import uuid
-import hashlib
-import logging
 
 
 class UniqueGenerator:
@@ -226,6 +211,10 @@ def compute_sha256():
         json_data = request.get_json()
         # 必须是本地磁盘路径
         video_path = json_data["videoPath"]
+        if not os.path.exists(video_path):
+            result["code"] = -1
+            result["msg"] = "videoPath is not exists"
+            return jsonify(result)
         with open(video_path, 'rb') as fp:
             data = fp.read()
             result['sha256'] = hashlib.md5(data).hexdigest()
@@ -267,9 +256,10 @@ def insert_main_avatar():
         return jsonify(result)
 
         # 检索主人像， 看是否存在相同的主头像
-    search_main_face_res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, avatar_image, enhance=False,
-                                                  score=float(score),
-                                                  start=0, size=10)
+    search_main_face_res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, avatar_image,
+                                                                        enhance=False,
+                                                                        score=float(score),
+                                                                        start=0, size=10)
     object_id = request.form.get('objectId')
     hdfs_path = request.form.get('hdfsPath')
 
@@ -638,17 +628,35 @@ def content_video_predict():
         "code": 0,
         "msg": "success",
     }
+    result['total'] = 0
     file = request.files['file']  # Assuming the file input field is named 'file'
     score = request.form.get('score')
     if score is None:
         score = 0.4
-    # limit = request.form.get('limit')
     page_num = request.form.get('pageNum')
     if page_num is None:
         page_num = 1
     page_size = request.form.get('pageSize')
     if page_size is None:
         page_size = 10
+
+    library_type = request.form.get('libraryType')
+    query = {
+        "match_all": {}
+    }
+
+    if library_type == "public":
+        query = {
+            "match_phrase": {
+                "from_source": "public"
+            }
+        }
+    elif library_type == "article":
+        query = {
+            "match_phrase": {
+                "from_source": "article"
+            }
+        }
 
     offset = (int(page_num) - 1) * int(page_size)
 
@@ -661,16 +669,14 @@ def content_video_predict():
         file.save(dir_path)  # Replace with the path where you want to save the file
 
         start = time.time()
-        search_vectors = video_model.get_frame_embedding_path(dir_path)
+        search_vectors = video_model.get_frame_embedding(dir_path)
 
         body = {
             "from": offset,
             "size": page_size,
             "query": {
                 "script_score": {
-                    "query": {
-                        "match_all": {}
-                    },
+                    "query": query,
                     "script": {
                         "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
                         "params": {
@@ -678,11 +684,15 @@ def content_video_predict():
                         }
                     }
                 }
+            },
+            "collapse": {
+                "field": "earliest_video_id.raw"
             }
         }
         search_result = []
-        frame_result = es_client.search(index=content_frames_v1_index, body=body)
+        frame_result = es_client.search(index=video_frames_v1_index, body=body)
         search_res = frame_result['hits']['hits']
+        total = frame_result['hits']['total']['value']
         for single in search_res:
             earliest_video_id = ""
             if single['_source']['earliest_video_id'] is not None:
@@ -691,7 +701,8 @@ def content_video_predict():
                 'id': single['_id'],
                 'score': normalized_euclidean_distance(single['_score']),
                 'hdfs_path': single['_source']['hdfs_path'],
-                'earliest_video_id': earliest_video_id
+                'earliest_video_id': earliest_video_id,
+                'tag': single['_source']['tag']
             }
             search_result.append(tmp)
 
@@ -699,6 +710,7 @@ def content_video_predict():
         print("搜索结果: ")
         print(search_res)
         result['res'] = [search_result]
+        result['total'] = total
     else:
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
@@ -736,7 +748,7 @@ def video_predict():
         file.save(dir_path)  # Replace with the path where you want to save the file
 
         start = time.time()
-        search_vectors = video_model.get_frame_embedding_path(dir_path)
+        search_vectors = video_model.get_frame_embedding(dir_path)
 
         body = {
             "from": offset,

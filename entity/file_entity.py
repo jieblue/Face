@@ -9,6 +9,7 @@ class VideoFile(FileData):
         super().__init__(file_name, file_path)
         self.tag = tag
         self.video_id = video_id
+        self.local_disk = False
 
 
 class ImageFile(FileData):
