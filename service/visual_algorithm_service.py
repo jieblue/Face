@@ -158,7 +158,9 @@ def grouping_face(face_embedding_list: List[FaceKeyFrameEmbedding], threshold=0.
                     need_insert_index, max_score = i, similarity_score
                     logger.info(f"Grouping face {current_face.key_id} and "
                                 f"face {face_embedding_info.key_id} similarity is {similarity_score}")
-        res[need_insert_index].append(face_embedding_info) if need_insert_index != -1 and max_score > threshold else res.append([face_embedding_info])
+        res[need_insert_index].append(
+            face_embedding_info) if need_insert_index != -1 and max_score > threshold else res.append(
+            [face_embedding_info])
 
     result_list = [max(single, key=lambda face_embedding_info: face_embedding_info.quantity_score) for single in res]
     for i, face_embedding_info in enumerate(result_list):

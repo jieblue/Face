@@ -1,4 +1,5 @@
 import hashlib
+import math
 import time
 import traceback
 
@@ -541,7 +542,6 @@ def face_predict():
     score = request.form.get('score')
     if score is None:
         score = 0.4
-    # limit = request.form.get('limit')
     page_num = request.form.get('pageNum')
     if page_num is None:
         page_num = 1
@@ -587,7 +587,6 @@ def main_face_predict():
     score = request.form.get('score')
     if score is None:
         score = 0.4
-    # limit = request.form.get('limit')
     page_num = request.form.get('pageNum')
     if page_num is None:
         page_num = 1
@@ -649,6 +648,13 @@ def content_video_predict():
         "match_all": {}
     }
 
+    if library_type == "video":
+        query = {
+            "match_phrase": {
+                "tag": "video"
+            }
+        }
+
     if library_type == "public":
         query = {
             "match_phrase": {
@@ -701,9 +707,13 @@ def content_video_predict():
             earliest_video_id = ""
             if single['_source']['earliest_video_id'] is not None:
                 earliest_video_id = str(single['_source']['earliest_video_id']).split("_")[0]
+            current_score = single['_score'] - 1000
+            if float(current_score) < 0.99:
+                logger.info(f"{single['_id']} document current_score: {current_score} < score: {score}")
+                continue
             tmp = {
                 'id': single['_id'],
-                'score': normalized_euclidean_distance(single['_score']),
+                'score': current_score,
                 'hdfs_path': single['_source']['hdfs_path'],
                 'earliest_video_id': earliest_video_id,
                 'tag': single['_source']['tag']
@@ -760,7 +770,9 @@ def video_predict():
             "query": {
                 "script_score": {
                     "query": {
-                        "match_all": {}
+                        "match_phrase": {
+                            "tag": "video"
+                        }
                     },
                     "script": {
                         "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
@@ -769,15 +781,22 @@ def video_predict():
                         }
                     }
                 }
+            },
+            "collapse": {
+                "field": "earliest_video_id.raw"
             }
         }
         search_result = []
         frame_result = es_client.search(index=video_frames_v1_index, body=body)
         search_res = frame_result['hits']['hits']
         for single in search_res:
+            current_score = single['_score'] - 1000
+            if float(current_score) < 0.99:
+                logger.info(f"{single['_id']} document current_score: {current_score} < score: {score}")
+                continue
             tmp = {
                 'id': single['_id'],
-                'score': normalized_euclidean_distance(single['_score']),
+                'score': current_score,
                 'hdfs_path': single['_source']['hdfs_path'],
                 'earliest_video_id': single['_source']['earliest_video_id']
             }
@@ -797,7 +816,8 @@ def video_predict():
 
 
 def normalized_euclidean_distance(L2, dim=512):
-    return 1 / (1 + L2 / dim)
+    dim_sqrt = math.sqrt(dim)
+    return 1 / (1 + L2 / dim_sqrt)
 
 
 if __name__ == '__main__':
