@@ -498,9 +498,13 @@ def image_vectorization_v3() -> Response:
         image_path = json_data["imagePath"]
         image_id = json_data["imageId"]
         file_name = json_data["fileName"]
+        library_type = json_data["libraryType"]
+        if library_type is None or library_type == "":
+            raise ValueError("libraryType is empty.")
         tag = json_data["tag"]
         file_name = image_id
-        image_file = ImageFile(file_name=file_name, file_path=image_path, video_id=image_id, tag=tag)
+        image_file = ImageFile(file_name=file_name, file_path=image_path, video_id=image_id, tag=tag,
+                               library_type=library_type)
 
         key_frame_list, face_frame_embedding_list = video_service_v3.process_image_file(image_file)
         data = {

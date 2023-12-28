@@ -101,7 +101,6 @@ def process_image_file(image_file: ImageFile):
 
 
 def process_key_frame(file_data: Any, key_frame_list: List[KeyFrame], face_frame_list: List[FaceKeyFrame]):
-    # TODO 将视频关键帧进行转换， 提取视频关键帧特征集合
     key_frame_embedding_list = visual_algorithm_service.translate_frame_embedding(key_frame_list)
     logger.info(f"Key frame embedding list extracted. {len(key_frame_embedding_list)}")
     # 将视频关键帧特征集合存储到Milvus中

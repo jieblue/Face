@@ -1,6 +1,5 @@
 from typing import List, Any
 
-import numpy as np
 from elasticsearch import Elasticsearch, NotFoundError
 from elasticsearch.helpers import bulk
 
@@ -35,6 +34,8 @@ video_frames_v1_index = face_app_conf['video_frame_collection']
 
 content_frames_v1_index = face_app_conf['content_frame_collection']
 
+similarity_search = "cosineSimilarity(params.query_vector, 'embedding') + 1000"
+
 
 def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKeyFrameEmbedding]):
     actions = []
@@ -57,6 +58,8 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
             earliest_video_id = face_frame_embedding.earliest_video_id
             if file_data.tag == 'content' and earliest_video_id is not None:
                 earliest_video_id = str(earliest_video_id).split("_")[0]
+            if file_data.library_type is not None:
+                face_frame_embedding.key_id = f"{face_frame_embedding.key_id}_{file_data.library_type}"
             action = {
                 "_index": image_faces_v1_index,
                 "_id": face_frame_embedding.key_id,
@@ -72,6 +75,8 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
                     'tag': file_data.tag
                 }
             }
+            if file_data.library_type is not None:
+                action['_source']['from_source'] = file_data.library_type
             actions.append(action)
     res = bulk(es_client, actions)
     logger.info(f"FaceKeyFrameEmbedding bulk insert result is {res}")
@@ -103,11 +108,14 @@ def main_face_election(face_frame_embedding_info):
             main_face_info.hdfs_path = face_frame_embedding_info.hdfs_path
 
             face_frame_embedding_info.object_id = main_face_info.key_id
+            if main_face_info.recognition_state == "identification":
+                face_frame_embedding_info.recognition_state = "identification"
             update_result = update_main_face(main_face_info)
             logger.info(f"Update main face {main_face_info.key_id} to Milvus. {update_result}")
     else:
         logger.info(f"Main face {face_frame_embedding_info.key_id} quality score is lower than 40")
         face_frame_embedding_info.object_id = "notgoodface"
+        logger.info(f"Main face {face_frame_embedding_info.key_id} is not good face")
 
 
 def insert_main_face(main_face_info: MainFaceKeyFrameEmbedding):
@@ -147,7 +155,7 @@ def search_main_face(face_frame_embedding: FaceKeyFrameEmbedding) -> MainFaceKey
                     "match_all": {}
                 },
                 "script": {
-                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
+                    "source": similarity_search,
                     "params": {
                         "query_vector": face_frame_embedding.embedding
                     }
@@ -188,7 +196,7 @@ def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=Fal
                     "match_all": {}
                 },
                 "script": {
-                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
+                    "source": similarity_search,
                     "params": {
                         "query_vector": embedding[0]
                     }
@@ -229,7 +237,7 @@ def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, s
                     "match_all": {}
                 },
                 "script": {
-                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
+                    "source": similarity_search,
                     "params": {
                         "query_vector": embedding[0]
                     }
@@ -272,7 +280,7 @@ def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=Fal
                     "match_all": {}
                 },
                 "script": {
-                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
+                    "source": similarity_search,
                     "params": {
                         "query_vector": embedding[0]
                     }
@@ -319,6 +327,10 @@ def insert_frame_embedding(file_data: Any, key_frame_embedding_list: List[KeyFra
         earliest_video_id = key_frame_embedding.earliest_video_id
         if file_data.tag == 'content' and earliest_video_id is not None:
             earliest_video_id = str(earliest_video_id).split("_")[0]
+
+        if file_data.library_type is not None:
+            key_frame_embedding.key_id = f"{key_frame_embedding.key_id}_{file_data.library_type}"
+            logger.info(f"Key frame embedding key id is {key_frame_embedding.key_id}")
         action = {
             "_index": index_name,
             "_id": key_frame_embedding.key_id,
@@ -331,8 +343,12 @@ def insert_frame_embedding(file_data: Any, key_frame_embedding_list: List[KeyFra
             }
         }
 
+        if file_data.library_type is not None:
+            action['_source']['from_source'] = file_data.library_type
+
         actions.append(action)
     res = bulk(es_client, actions)
+
     logger.info(f"KeyFrameEmbedding bulk insert result is {res}")
     return res
 
