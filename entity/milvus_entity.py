@@ -28,6 +28,7 @@ class FaceKeyFrameEmbedding:
         self.frame_num = frame_num
         self.timestamp = timestamp
         self.face_num = face_num
+        self.recognition_state = "unidentification"
 
     def to_dict(self):
         return {
@@ -41,7 +42,8 @@ class FaceKeyFrameEmbedding:
             "file_name": self.file_name,
             "frame_num": self.frame_num,
             "timestamp": self.timestamp,
-            "face_num": self.face_num
+            "face_num": self.face_num,
+            "recognition_state": self.recognition_state,
         }
 
 
