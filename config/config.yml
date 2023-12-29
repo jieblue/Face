@@ -31,9 +31,9 @@ milvus:
   password: LWlZ#s0zgX12D1#z
 
 elasticsearch:
-#  host: 192.168.38.87
+  host: 192.168.38.87
 #  host: 10.10.38.72
-  host: 10.10.38.87
+#  host: 10.10.38.87
   port: 9200
   username: elastic
   password: LWlZ#s0zgX12D1#z
@@ -60,4 +60,5 @@ face_app:
   face_predict_dir: "/tmp/face_predict_tmp"
   video_id_file_path: "/home/gpu6/video-face-project/need_upload_hdfs"
   max_image_size_mb: 2
+  download_file: False
 video_root_path: "/Users/jackpan/JackPanDocuments/temporary/"

@@ -33,12 +33,14 @@ conf = get_config()
 # 获取face_app的配置
 face_app_conf = conf['face_app']
 
+download_file = face_app_conf['download_file']
+
 # Create a logger
 logger = log_util.get_logger(__name__)
 
 # 加载人脸模型 加载模型会耗时比较长
 face_model = Face_Onnx(conf['model'], gpu_id=0)
-video_model = VideoModel('./config/weights/ResNet512.onnx', gpu_id=0)
+video_model = VideoModel('./config/weights/Pvt.onnx', gpu_id=0)
 logger.info("Video model loaded successfully")
 
 key_frames_path = './keyframes'
@@ -204,6 +206,7 @@ def determine_face():
 
 @app.route('/api/ability/compute_sha256', methods=['POST'])
 def compute_sha256():
+    # 增加MD5的计算
     result = {
         "code": 0,
         "msg": "success",
@@ -220,6 +223,9 @@ def compute_sha256():
             data = fp.read()
             result['sha256'] = hashlib.md5(data).hexdigest()
             logger.info("sha256: " + result['sha256'])
+        if download_file:
+            video_service_v3.delete_video_file(video_path)
+
     except Exception as e:
         traceback.print_exc()
         logger.error("compute_sha256 error", e)
