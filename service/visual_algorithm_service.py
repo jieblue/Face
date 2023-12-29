@@ -173,31 +173,31 @@ def grouping_face(face_embedding_list: List[FaceKeyFrameEmbedding], threshold=0.
         res.append(group_human)
     logger.info(f"Grouping face res len {len(res)} time taken: {time.time() - start_time} seconds")
 
-    # 第二重聚类
-    twice_start_point = 0
-    twice_last_point = 0
-    twice_group_human = []
-    twice_list_len = len(res)
-    twice_res = []
-    while twice_last_point < twice_list_len:
-        first_face = res[twice_start_point]
-        if twice_start_point == twice_last_point:
-            twice_group_human.extend(first_face)
-            twice_last_point += 1
-        else:
-            second_face = res[twice_last_point]
-            if cul_similarity(first_face[0].embedding, second_face[0].embedding) > threshold:
-                twice_group_human.extend(second_face)
-                twice_last_point += 1
-            else:
-                twice_res.append(twice_group_human)
-                twice_group_human = []
-                twice_start_point = twice_last_point
-
-    if len(twice_group_human) != 0:
-        twice_res.append(twice_group_human)
-    logger.info(f"Grouping twice face res len {len(twice_res)} time taken: {time.time() - start_time} seconds")
-    result_list = [max(single, key=lambda face_embedding: face_embedding.quantity_score) for single in twice_res]
+    # # 第二重聚类
+    # twice_start_point = 0
+    # twice_last_point = 0
+    # twice_group_human = []
+    # twice_list_len = len(res)
+    # twice_res = []
+    # while twice_last_point < twice_list_len:
+    #     first_face = res[twice_start_point]
+    #     if twice_start_point == twice_last_point:
+    #         twice_group_human.extend(first_face)
+    #         twice_last_point += 1
+    #     else:
+    #         second_face = res[twice_last_point]
+    #         if cul_similarity(first_face[0].embedding, second_face[0].embedding) > threshold:
+    #             twice_group_human.extend(second_face)
+    #             twice_last_point += 1
+    #         else:
+    #             twice_res.append(twice_group_human)
+    #             twice_group_human = []
+    #             twice_start_point = twice_last_point
+    #
+    # if len(twice_group_human) != 0:
+    #     twice_res.append(twice_group_human)
+    # logger.info(f"Grouping twice face res len {len(twice_res)} time taken: {time.time() - start_time} seconds")
+    result_list = [max(single, key=lambda face_embedding: face_embedding.quantity_score) for single in res]
     for i, face_embedding_info in enumerate(result_list):
         logger.info(f"Grouping face {i} max score is {face_embedding_info.quantity_score}, face_embedding_info "
                     f"is {face_embedding_info.key_id}")
