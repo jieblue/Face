@@ -33,12 +33,14 @@ conf = get_config()
 # 获取face_app的配置
 face_app_conf = conf['face_app']
 
+download_file = face_app_conf['download_file']
+
 # Create a logger
 logger = log_util.get_logger(__name__)
 
 # 加载人脸模型 加载模型会耗时比较长
 face_model = Face_Onnx(conf['model'], gpu_id=0)
-video_model = VideoModel('./config/weights/ResNet512.onnx', gpu_id=0)
+video_model = VideoModel('./config/weights/ResNet2048_v224.onnx', gpu_id=0)
 logger.info("Video model loaded successfully")
 
 key_frames_path = './keyframes'
@@ -204,6 +206,7 @@ def determine_face():
 
 @app.route('/api/ability/compute_sha256', methods=['POST'])
 def compute_sha256():
+    # 增加MD5的计算
     result = {
         "code": 0,
         "msg": "success",
@@ -220,6 +223,9 @@ def compute_sha256():
             data = fp.read()
             result['sha256'] = hashlib.md5(data).hexdigest()
             logger.info("sha256: " + result['sha256'])
+        if download_file:
+            video_service_v3.delete_video_file(video_path)
+
     except Exception as e:
         traceback.print_exc()
         logger.error("compute_sha256 error", e)
@@ -708,7 +714,7 @@ def content_video_predict():
             if single['_source']['earliest_video_id'] is not None:
                 earliest_video_id = str(single['_source']['earliest_video_id']).split("_")[0]
             current_score = single['_score'] - 1000
-            if float(current_score) < 0.99:
+            if float(current_score) < 0.9:
                 logger.info(f"{single['_id']} document current_score: {current_score} < score: {score}")
                 continue
             tmp = {
@@ -791,7 +797,7 @@ def video_predict():
         search_res = frame_result['hits']['hits']
         for single in search_res:
             current_score = single['_score'] - 1000
-            if float(current_score) < 0.99:
+            if float(current_score) < 0.9:
                 logger.info(f"{single['_id']} document current_score: {current_score} < score: {score}")
                 continue
             tmp = {

@@ -161,7 +161,8 @@ def search_main_face(face_frame_embedding: FaceKeyFrameEmbedding) -> MainFaceKey
                     }
                 }
             }
-        }
+        },
+        "_source": ["object_id", "hdfs_path", "quality_score", "recognition_state"]
     }
     search_res = es_client.search(index=main_avatar_v1_index, body=body)
 
@@ -175,7 +176,7 @@ def search_main_face(face_frame_embedding: FaceKeyFrameEmbedding) -> MainFaceKey
         if current_score >= 0.6:
             logger.info(f"Search main avatar result: {one} and score is {current_score}")
             main_face_info = MainFaceKeyFrameEmbedding(key_id=one['_id'], object_id=one['_source']['object_id'],
-                                                       quantity_score=current_score,
+                                                       quantity_score=one['_source']['quality_score'],
                                                        hdfs_path=one['_source']['hdfs_path'],
                                                        recognition_state=one['_source']['recognition_state'])
 
@@ -265,7 +266,7 @@ def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, s
 
             result.append(tmp)
 
-    return result
+    return [result]
 
 
 def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):

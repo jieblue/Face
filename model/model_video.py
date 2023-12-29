@@ -51,7 +51,8 @@ class VideoModel:
         feature = self.session.run(None, {self.input_name: image})
         feature = torch.from_numpy(feature[0])
         feature = torch.nn.functional.adaptive_avg_pool2d(feature, [1, 1])
-        # feature = feature.cpu().flatten().numpy()
+        feature = feature.reshape((1, 4, 512))
+        feature = torch.mean(feature, dim=1)
         feature = feature.flatten().numpy()
         feature = feature.tolist()
 

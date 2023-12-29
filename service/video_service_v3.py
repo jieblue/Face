@@ -53,8 +53,7 @@ def download_video(video_file: VideoFile):
             print(f"{file_path} Time taken to write file to local: {end_time - start_time} seconds")
 
 
-def delete_video_file(video_file):
-    file_path = video_file.file_path
+def delete_video_file(file_path):
     if os.path.exists(file_path):
         os.remove(file_path)
         logger.info(f"Video file {file_path} deleted.")
@@ -78,8 +77,6 @@ def process_video_file(video_file: VideoFile):
     # 提出视频关键帧中的人脸关键帧集合
     face_frame_list = visual_algorithm_service.extract_face_list(key_frame_list)
     logger.info(f"Face frame list extracted. number: {len(face_frame_list)}")
-    if not video_file.local_disk:
-        delete_video_file(video_file)
 
     return process_key_frame(video_file, key_frame_list, face_frame_list)
 

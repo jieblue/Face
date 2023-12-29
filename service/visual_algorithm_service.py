@@ -1,3 +1,4 @@
+import time
 from typing import List
 
 import numpy as np
@@ -20,7 +21,7 @@ conf = get_config()
 face_model = Face_Onnx(conf['model'], gpu_id=0)
 logger.info("Face model loaded successfully")
 
-video_model = VideoModel('./config/weights/ResNet512.onnx', gpu_id=0)
+video_model = VideoModel('./config/weights/ResNet2048_v224.onnx', gpu_id=0)
 logger.info("Video model loaded successfully")
 
 
@@ -146,27 +147,87 @@ def get_face_quality_single_img(model: Face_Onnx, image_path):
     return score
 
 
-def grouping_face(face_embedding_list: List[FaceKeyFrameEmbedding], threshold=0.55):
+def grouping_face(face_embedding_list: List[FaceKeyFrameEmbedding], threshold=0.6):
+    start_time = time.time()
     res = []
-    for face_embedding_info in face_embedding_list:
-        max_score, need_insert_index = -1, -1
-        for i, single in enumerate(res):
-            for current_face in single:
-                similarity_score = cul_similarity(current_face.embedding, face_embedding_info.embedding)
-                if (current_face.key_id != face_embedding_info.key_id and similarity_score > threshold
-                        and similarity_score > max_score):
-                    need_insert_index, max_score = i, similarity_score
-                    logger.info(f"Grouping face {current_face.key_id} and "
-                                f"face {face_embedding_info.key_id} similarity is {similarity_score}")
-        res[need_insert_index].append(
-            face_embedding_info) if need_insert_index != -1 and max_score > threshold else res.append(
-            [face_embedding_info])
+    start_point = 0
+    last_point = 0
+    group_human = []
+    list_len = len(face_embedding_list)
+    # 第一重聚类
+    while last_point < list_len:
+        first_face = face_embedding_list[start_point]
+        if start_point == last_point:
+            group_human.append(first_face)
+            last_point += 1
+        else:
+            second_face = face_embedding_list[last_point]
+            if cul_similarity(first_face.embedding, second_face.embedding) > threshold:
+                group_human.append(second_face)
+                last_point += 1
+            else:
+                res.append(group_human)
+                group_human = []
+                start_point = last_point
+    if len(group_human) != 0:
+        res.append(group_human)
+    logger.info(f"Grouping face res len {len(res)} time taken: {time.time() - start_time} seconds")
 
-    result_list = [max(single, key=lambda face_embedding_info: face_embedding_info.quantity_score) for single in res]
+    # # 第二重聚类
+    # twice_start_point = 0
+    # twice_last_point = 0
+    # twice_group_human = []
+    # twice_list_len = len(res)
+    # twice_res = []
+    # while twice_last_point < twice_list_len:
+    #     first_face = res[twice_start_point]
+    #     if twice_start_point == twice_last_point:
+    #         twice_group_human.extend(first_face)
+    #         twice_last_point += 1
+    #     else:
+    #         second_face = res[twice_last_point]
+    #         if cul_similarity(first_face[0].embedding, second_face[0].embedding) > threshold:
+    #             twice_group_human.extend(second_face)
+    #             twice_last_point += 1
+    #         else:
+    #             twice_res.append(twice_group_human)
+    #             twice_group_human = []
+    #             twice_start_point = twice_last_point
+    #
+    # if len(twice_group_human) != 0:
+    #     twice_res.append(twice_group_human)
+    # logger.info(f"Grouping twice face res len {len(twice_res)} time taken: {time.time() - start_time} seconds")
+    result_list = [max(single, key=lambda face_embedding: face_embedding.quantity_score) for single in res]
     for i, face_embedding_info in enumerate(result_list):
         logger.info(f"Grouping face {i} max score is {face_embedding_info.quantity_score}, face_embedding_info "
-                    f"is {face_embedding_info.to_dict()}")
+                    f"is {face_embedding_info.key_id}")
     return result_list
+
+
+# def grouping_face(face_embedding_list: List[FaceKeyFrameEmbedding], threshold=0.6):
+#     start_time = time.time()
+#     res = []
+#     for face_embedding_info in face_embedding_list:
+#         max_score, need_insert_index = -1, -1
+#         for i, single in enumerate(res):
+#             for current_face in single:
+#                 similarity_score = cul_similarity(current_face.embedding, face_embedding_info.embedding)
+#                 if (current_face.key_id != face_embedding_info.key_id and similarity_score > threshold
+#                         and similarity_score > max_score):
+#                     need_insert_index, max_score = i, similarity_score
+#                     logger.info(f"Grouping face {current_face.key_id} and "
+#                                 f"face {face_embedding_info.key_id} similarity is {similarity_score}")
+#         res[need_insert_index].append(
+#             face_embedding_info) if need_insert_index != -1 and max_score > threshold else res.append(
+#             [face_embedding_info])
+#
+#     logger.info(f"Grouping face time taken: {time.time() - start_time} seconds")
+#
+#     result_list = [max(single, key=lambda face_embedding_info: face_embedding_info.quantity_score) for single in res]
+#     # for i, face_embedding_info in enumerate(result_list):
+#     #     logger.info(f"Grouping face {i} max score is {face_embedding_info.quantity_score}, face_embedding_info "
+#     #                 f"is {face_embedding_info.to_dict()}")
+#     return result_list
 
 
 def cul_similarity(face_x, face_y):
