@@ -714,7 +714,7 @@ def content_video_predict():
             if single['_source']['earliest_video_id'] is not None:
                 earliest_video_id = str(single['_source']['earliest_video_id']).split("_")[0]
             current_score = single['_score'] - 1000
-            if float(current_score) < 0.99:
+            if float(current_score) < 0.9:
                 logger.info(f"{single['_id']} document current_score: {current_score} < score: {score}")
                 continue
             tmp = {
@@ -797,7 +797,7 @@ def video_predict():
         search_res = frame_result['hits']['hits']
         for single in search_res:
             current_score = single['_score'] - 1000
-            if float(current_score) < 0.99:
+            if float(current_score) < 0.9:
                 logger.info(f"{single['_id']} document current_score: {current_score} < score: {score}")
                 continue
             tmp = {
