@@ -21,7 +21,7 @@ conf = get_config()
 face_model = Face_Onnx(conf['model'], gpu_id=0)
 logger.info("Face model loaded successfully")
 
-video_model = VideoModel('./config/weights/Pvt.onnx', gpu_id=0)
+video_model = VideoModel('./config/weights/ResNet2048_v224.onnx', gpu_id=0)
 logger.info("Video model loaded successfully")
 
 

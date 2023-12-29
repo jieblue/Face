@@ -40,7 +40,7 @@ logger = log_util.get_logger(__name__)
 
 # 加载人脸模型 加载模型会耗时比较长
 face_model = Face_Onnx(conf['model'], gpu_id=0)
-video_model = VideoModel('./config/weights/Pvt.onnx', gpu_id=0)
+video_model = VideoModel('./config/weights/ResNet2048_v224.onnx', gpu_id=0)
 logger.info("Video model loaded successfully")
 
 key_frames_path = './keyframes'
