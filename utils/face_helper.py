@@ -78,12 +78,29 @@ def grouping_face(faces_list, threshold=0.55):
     return res
 
 
-def cul_similarity(face_x, face_y):
+# 计算余弦相似度
+def cul_similarity(face_x, face_y, noraml=True):
     # list 2 numpy
+    # normal 表示输入向量是否归一化
     np_fx = np.array(face_x)
     np_fy = np.array(face_y)
-    return np.dot(np_fx, np_fy)
-    # #numpy to tensor
-    # t_fx = torch.from_numpy(np_fx).float().unsqueeze(0)
-    # t_fy = torch.from_numpy(np_fy).float().unsqueeze(0)
-    # return torch.nn.functional.cosine_similarity(t_fx, t_fy)
+    if noraml:
+        return np.dot(np_fx, np_fy)
+    else:
+        return np.dot(np_fx, np_fy) / (np.linalg.norm(np_fx) * np.linalg.norm(np_fy))
+
+    # retur
+    #n torch.nn.functional.cosine_similarity(t_fx, t_fy)
+
+#计算图像梯度
+def calculate_sharpness_score(image):
+    # 读取图像
+    # 转换为灰度图像
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # 计算图像的梯度
+    score = cv2.Laplacian(gray, cv2.CV_64F).var()
+
+    # 上限400
+    score  = min(score, 400)
+    return score

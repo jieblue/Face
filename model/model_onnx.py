@@ -3,7 +3,7 @@ from utils.img_util import read_img
 from model.adaface.adaface_onnx import Adaface_Onnx
 from model.gfpgan_onnx.gfpgan_onnx import GFPGAN_Onnx
 from model.retinaface.retinafce_onnx import Retinaface_Onnx
-
+from utils.face_helper import calculate_sharpness_score
 
 # Face_Onnx 是.model包下四个模型的整合
 class Face_Onnx:
@@ -64,5 +64,11 @@ class Face_Onnx:
             embeddings.append(embedding)
 
         return embeddings
+
+    # 对提取出的人脸图片清晰度的大致评估
+    # 输入即为提取出的人脸图片， 返回分数 0 - 400
+    def rating_face(self, img):
+        score = calculate_sharpness_score(img)
+        return score
 
 

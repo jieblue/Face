@@ -12,7 +12,8 @@ def extract_video(video_path):
     # return a list of nparray(bgr image)
     # print(video_path)
     try:
-        container = av.open(video_path)
+        content = av.datasets.curated(video_path)
+        container = av.open(content)
     except:
         return None
 
@@ -20,7 +21,9 @@ def extract_video(video_path):
     # Signal that we only want to look at keyframes.
     stream = container.streams.video[0]
 
-    stream.codec_context.skip_frame = 'NONKEY'
+    # NONKEY 跳过非关键帧
+    # NONINTRA 跳过非帧内帧
+    stream.codec_context.skip_frame = 'NONINTRA'
     frames = container.decode(stream)
     for frame in frames:
         # print(stream.time_base)

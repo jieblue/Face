@@ -5,3 +5,6 @@
 /config/local_config.yml
 .idea
 /config/local_config.py
+/.idea
+/.test_img
+/.res_img
