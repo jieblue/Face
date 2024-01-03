@@ -100,6 +100,10 @@ def main_face_election(face_frame_embedding_info):
         logger.info(f"Insert main face {main_face_info.key_id} to Milvus. {insert_result}")
     elif main_face_info is not None and float(face_frame_embedding_info.quantity_score) > 40:
         logger.info(f"Main face {main_face_info.key_id} found in Milvus. {main_face_info}")
+        face_frame_embedding_info.object_id = main_face_info.key_id
+        if main_face_info.recognition_state == "identification":
+            face_frame_embedding_info.recognition_state = "identification"
+            logger.info(f"Human Face face {face_frame_embedding_info.key_id} is identification")
         if main_face_info.quantity_score < face_frame_embedding_info.quantity_score:
             logger.info(f"Main face {main_face_info.key_id} quality score is lower than "
                         f"{face_frame_embedding_info.key_id}")
@@ -107,9 +111,6 @@ def main_face_election(face_frame_embedding_info):
             main_face_info.embedding = face_frame_embedding_info.embedding
             main_face_info.hdfs_path = face_frame_embedding_info.hdfs_path
 
-            face_frame_embedding_info.object_id = main_face_info.key_id
-            if main_face_info.recognition_state == "identification":
-                face_frame_embedding_info.recognition_state = "identification"
             update_result = update_main_face(main_face_info)
             logger.info(f"Update main face {main_face_info.key_id} to Milvus. {update_result}")
     else:

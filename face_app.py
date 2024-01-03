@@ -728,7 +728,7 @@ def content_video_predict():
 
         print('搜索耗时: ' + str(time.time() - start))
         print("搜索结果: ")
-        print(search_res)
+        print(search_result)
         result['res'] = [search_result]
         result['total'] = total
     else:
@@ -810,7 +810,7 @@ def video_predict():
 
         print('搜索耗时: ' + str(time.time() - start))
         print("搜索结果: ")
-        print(search_res)
+        print(search_result)
         result['res'] = [search_result]
     else:
         result["code"] = -1
