@@ -7,32 +7,6 @@ from PIL import Image
 from torchvision import transforms
 import io
 
-def np2pil(img):
-    ## numpy aray bgr --> PIL.Image
-    return Image.fromarray(np.uint8(img[:, :, ::-1]))
-
-
-def pil2np(img):
-    return np.array(img)[:, :, ::-1]
-
-
-def get_uuid():
-    return uuid.uuid4().int & (1<<64)-1
-
-
-
-def np2tensor(img, normal=False):
-    image_rgb = img[:, :, ::-1]
-    tensor_rgb = torch.from_numpy(image_rgb.copy().transpose((2, 0, 1))).float()
-    # print(tensor_rgb)
-    if normal:
-        tensor_rgb = tensor_rgb/255.
-    return tensor_rgb
-
-
-def tensor2np(img):
-    return img.cpu().numpy()[:, :, ::-1]
-
 
 def read_img(path, is_url=False):
     #return numpy bgr
@@ -79,9 +53,14 @@ def down_image(img):
     return img
 
 
-def imgfile2np(file):
-    img = Image.open(io.BytesIO(file))
-    if img.mode != 'RGB':
-        img = img.convert('RGB')
-
-    return pil2np(img)
+# 写入压缩图片
+def write_compression_img(save_path, img, bit_rate=50, size=None):
+    # save_path 存储路径  img输入图片
+    # bit_rate压缩比特率 默认50，降低约一半空间占用
+    # size 默认为None，表示是否修改图片的分辨率，如果修改分辨率, eg. size=(1920, 1080)
+    if size is not None:
+        img = cv2.resize(img, size)
+    # 设置压缩参数（比特率）
+    compression_params = [cv2.IMWRITE_JPEG_QUALITY, bit_rate]
+    # 保存压缩后的图像
+    cv2.imwrite(save_path, img, compression_params)
