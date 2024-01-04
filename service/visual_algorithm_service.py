@@ -1,3 +1,4 @@
+import math
 import time
 from typing import List
 
@@ -6,10 +7,9 @@ import torch
 
 from config.config import get_config
 from entity.frame_entity import KeyFrame, FaceKeyFrame
-from entity.milvus_entity import FaceKeyFrameEmbedding, MainFaceKeyFrameEmbedding, KeyFrameEmbedding
+from entity.milvus_entity import FaceKeyFrameEmbedding, KeyFrameEmbedding
 from model.model_onnx import Face_Onnx
 from model.model_video import VideoModel
-from service import milvus_service
 from utils import log_util
 from utils.img_util import cv_imread
 
@@ -23,6 +23,36 @@ logger.info("Face model loaded successfully")
 
 video_model = VideoModel('./config/weights/ResNet2048_v224.onnx', gpu_id=0)
 logger.info("Video model loaded successfully")
+
+
+def grouping_key_frame(key_frame_list: List[KeyFrame]):
+    for key_frame in key_frame_list:
+        frame_embedding = video_model.get_frame_embedding(key_frame.frame_stream)
+        logger.info(f"Extracted frame num {key_frame.frame_num} frames ")
+        key_frame.embedding = frame_embedding
+
+    logger.info(f"Extracted {len(key_frame_list)} frames ")
+    start_pos = 0
+    end_pos = 0
+    length = len(key_frame_list)
+    result = []
+    while end_pos < length:
+        if start_pos == end_pos:
+            end_pos = end_pos + 1
+        else:
+            start_frame = key_frame_list[start_pos]
+            end_frame = key_frame_list[end_pos]
+
+            rate = keyframe_similarity(start_frame.embedding, end_frame.embedding)
+            logger.info(f"key frame {start_frame.key_id} and {end_frame.key_id} similarity is {rate}")
+            if rate > 0.9:
+                end_pos = end_pos + 1
+            else:
+                result.append(start_frame)
+                start_pos = end_pos
+                end_pos = end_pos + 1
+    logger.info(f"Extracted {len(result)} key frames ")
+    return result
 
 
 def extract_face_list(key_frame_list: List[KeyFrame]) -> List[FaceKeyFrame]:
@@ -45,9 +75,12 @@ def extract_face_list(key_frame_list: List[KeyFrame]) -> List[FaceKeyFrame]:
 def translate_frame_embedding(key_frame_list: List[KeyFrame]) -> List[KeyFrameEmbedding]:
     frame_embedding_list = []
     for frame_info in key_frame_list:
-        # 转换向量
-        frame_embedding = video_model.get_frame_embedding(frame_info.frame_stream)
-
+        frame_embedding = frame_info.embedding
+        if frame_embedding is None:
+            frame_embedding = video_model.get_frame_embedding(frame_info.frame_stream)
+            logger.info(f"Extracted {frame_info.frame_num} frames ")
+        else:
+            logger.info(f"Extracted {frame_info.frame_num} frames from cache")
         # 人员ID在主人像选举的时候进行添加， HDFS path， 关联的视频组， 在向量插入的时候进行关联
         key_frame_embedding = KeyFrameEmbedding(key_id=frame_info.key_id,
                                                 embedding=frame_embedding,
@@ -172,31 +205,6 @@ def grouping_face(face_embedding_list: List[FaceKeyFrameEmbedding], threshold=0.
     if len(group_human) != 0:
         res.append(group_human)
     logger.info(f"Grouping face res len {len(res)} time taken: {time.time() - start_time} seconds")
-
-    # # 第二重聚类
-    # twice_start_point = 0
-    # twice_last_point = 0
-    # twice_group_human = []
-    # twice_list_len = len(res)
-    # twice_res = []
-    # while twice_last_point < twice_list_len:
-    #     first_face = res[twice_start_point]
-    #     if twice_start_point == twice_last_point:
-    #         twice_group_human.extend(first_face)
-    #         twice_last_point += 1
-    #     else:
-    #         second_face = res[twice_last_point]
-    #         if cul_similarity(first_face[0].embedding, second_face[0].embedding) > threshold:
-    #             twice_group_human.extend(second_face)
-    #             twice_last_point += 1
-    #         else:
-    #             twice_res.append(twice_group_human)
-    #             twice_group_human = []
-    #             twice_start_point = twice_last_point
-    #
-    # if len(twice_group_human) != 0:
-    #     twice_res.append(twice_group_human)
-    # logger.info(f"Grouping twice face res len {len(twice_res)} time taken: {time.time() - start_time} seconds")
     result_list = [max(single, key=lambda face_embedding: face_embedding.quantity_score) for single in res]
     for i, face_embedding_info in enumerate(result_list):
         logger.info(f"Grouping face {i} max score is {face_embedding_info.quantity_score}, face_embedding_info "
@@ -204,34 +212,18 @@ def grouping_face(face_embedding_list: List[FaceKeyFrameEmbedding], threshold=0.
     return result_list
 
 
-# def grouping_face(face_embedding_list: List[FaceKeyFrameEmbedding], threshold=0.6):
-#     start_time = time.time()
-#     res = []
-#     for face_embedding_info in face_embedding_list:
-#         max_score, need_insert_index = -1, -1
-#         for i, single in enumerate(res):
-#             for current_face in single:
-#                 similarity_score = cul_similarity(current_face.embedding, face_embedding_info.embedding)
-#                 if (current_face.key_id != face_embedding_info.key_id and similarity_score > threshold
-#                         and similarity_score > max_score):
-#                     need_insert_index, max_score = i, similarity_score
-#                     logger.info(f"Grouping face {current_face.key_id} and "
-#                                 f"face {face_embedding_info.key_id} similarity is {similarity_score}")
-#         res[need_insert_index].append(
-#             face_embedding_info) if need_insert_index != -1 and max_score > threshold else res.append(
-#             [face_embedding_info])
-#
-#     logger.info(f"Grouping face time taken: {time.time() - start_time} seconds")
-#
-#     result_list = [max(single, key=lambda face_embedding_info: face_embedding_info.quantity_score) for single in res]
-#     # for i, face_embedding_info in enumerate(result_list):
-#     #     logger.info(f"Grouping face {i} max score is {face_embedding_info.quantity_score}, face_embedding_info "
-#     #                 f"is {face_embedding_info.to_dict()}")
-#     return result_list
-
-
 def cul_similarity(face_x, face_y):
     # list 2 numpy
     np_fx = np.array(face_x)
     np_fy = np.array(face_y)
     return np.dot(np_fx, np_fy)
+
+
+def keyframe_similarity(frame_x, frame_y):
+    distance = np.linalg.norm(np.array(frame_x) - np.array(frame_y))
+    return normalized_euclidean_distance(distance)
+
+
+def normalized_euclidean_distance(L2, dim=512):
+    dim_sqrt = math.sqrt(dim)
+    return 1 / (1 + L2 / dim_sqrt)
