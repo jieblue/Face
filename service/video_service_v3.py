@@ -72,6 +72,8 @@ def process_video_file(video_file: VideoFile):
     # 提取视频关键帧对象集合
     key_frame_list = basic_algorithm_service.extract_key_frame_list(video_file)
     logger.info(f"Key frame list extracted. number: {len(key_frame_list)}")
+    key_frame_list = visual_algorithm_service.grouping_key_frame(key_frame_list)
+    logger.info(f"Key frame list grouped. number: {len(key_frame_list)}")
     # 转换成ImageFile对象集合
 
     # 提出视频关键帧中的人脸关键帧集合

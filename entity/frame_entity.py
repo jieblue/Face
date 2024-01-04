@@ -28,6 +28,7 @@ class KeyFrame:
         self.key_id = self.generate_key_id()
         self.path_suffix = self.tag + "/key_frame/" + self.file_name + "/" + str(self.key_id) + ".jpg"
         self.hdfs_path = hdfs_prefix + "/" + self.path_suffix
+        self.embedding = None
 
     def generate_key_id(self):
         return self.file_name + "_" + str(self.frame_num) + "_" + str(self.timestamp)
