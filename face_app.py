@@ -10,8 +10,7 @@ from entity.union_result import UnionResult
 from model.model_video import VideoModel
 from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service
 from service.core_service import *
-from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index, \
-    content_frames_v1_index
+from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index
 from utils import log_util
 from utils.img_util import *
 
@@ -51,14 +50,6 @@ face_predict_dir = face_app_conf['face_predict_dir']
 generator = UniqueGenerator()
 
 app = Flask(__name__)
-"""
-{
-    'frame': 视频帧的数据,
-    'timestamp': 视频帧的时间戳,
-    'frame_num': 第几个视频关键帧,
-    'unique_filename': 文件唯一标识名,
-}
-"""
 
 
 @app.route('/api/ability/face_vectorization', methods=['POST'])
@@ -78,24 +69,15 @@ def main_face_list():
         "msg": "success",
     }
     start = time.time()
-    score = request.form.get('score')
-    if score is None:
-        score = 0.4
-    page_num = request.form.get('pageNum')
-    if page_num is None:
-        page_num = 1
-    page_size = request.form.get('pageSize')
-    if page_size is None:
-        page_size = 10
+    score = request.form.get('score', 0.6)
+    page_num = request.form.get('pageNum', 1)
+    page_size = request.form.get('pageSize', 10)
+    recognition_state = request.form.get('recognitionState', 'unidentification')
 
-    recognition_state = request.form.get('recognitionState')
-    if recognition_state is None:
-        recognition_state = 'unidentification'
-
-    logger.info("score:" + str(score))
-    logger.info("page_num:" + str(page_num))
-    logger.info("page_size:" + str(page_size))
-    logger.info("recognition_state:" + str(recognition_state))
+    logger.info(f"score: {score}")
+    logger.info(f"page_num: {page_num}")
+    logger.info(f"page_size: {page_size}")
+    logger.info(f"recognition_state: {recognition_state}")
 
     offset = (int(page_num) - 1) * int(page_size)
 
@@ -123,9 +105,8 @@ def main_face_list():
         }
         search_result.append(tmp)
 
-    logger.info('搜索耗时: ' + str(time.time() - start))
-    logger.info("搜索结果: ")
-    logger.info(search_res)
+    logger.info(f'搜索耗时: {str(time.time() - start)}')
+    logger.info(f"搜索结果: {search_res}")
     result['res'] = search_result
     return jsonify(result)
 
@@ -146,8 +127,6 @@ def face_quality():
 
         if file:
             uuid_filename = generator.generate_unique_value()
-            logger.info("uuid_filename: " + uuid_filename)
-
             dir_path = face_predict_dir + uuid_filename + ".jpg"
             file.save(dir_path)  # Replace with the path where you want to save the file
 
@@ -165,6 +144,8 @@ def face_quality():
                 result["msg"] = "No face found"
                 return jsonify(result)
             result['scores'] = str(scores[0])
+            video_service_v3.delete_video_file(dir_path)
+            logger.info('face_quality delete temp file: ' + dir_path)
         else:
             result["code"] = -1
             result["msg"] = "File uploaded Failure!"
@@ -186,7 +167,6 @@ def determine_face():
     file = request.files['file']  # Assuming the file input field is named 'file'
     if file:
         uuid_filename = generator.generate_unique_value()
-        logger.info("uuid_filename: " + uuid_filename)
 
         dir_path = face_predict_dir + uuid_filename + ".jpg"
         file.save(dir_path)  # Replace with the path where you want to save the file
@@ -197,6 +177,8 @@ def determine_face():
         if len(embedding) == 0:
             result["face_found_in_image"] = False
             result['error_message'] = 'No face found'
+        video_service_v3.delete_video_file(dir_path)
+        logger.info('determineface delete temp file: ' + dir_path)
     else:
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
@@ -250,9 +232,7 @@ def insert_main_avatar():
     if validate_result["code"] < 0:
         return jsonify(validate_result)
 
-    score = request.form.get('score')
-    if score is None:
-        score = 0.6
+    score = request.form.get('score', 0.6)
 
     # Validate image
     avatar_image = cv_imread(request.files['file'])
@@ -577,6 +557,8 @@ def face_predict():
         logger.info('搜索耗时: ' + str(time.time() - start))
         logger.info(f"搜索结果: {res}")
         result['res'] = res
+        video_service_v3.delete_video_file(dir_path)
+        logger.info('face_predict delete temp file: ' + dir_path)
     else:
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
@@ -635,7 +617,7 @@ video_predict_dir = '/tmp/video_predict_tmp'
 def content_video_predict():
     result = {"code": 0, "msg": "success", 'total': 0}
     file = request.files.get('file')  # Assuming the file input field is named 'file'
-    score = request.form.get('score', 0.4)
+    score = request.form.get('score', 0.6)
     page_num = request.form.get('pageNum', 1)
     page_size = request.form.get('pageSize', 10)
 
