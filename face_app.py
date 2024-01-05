@@ -633,61 +633,97 @@ video_predict_dir = '/tmp/video_predict_tmp'
 
 @app.route('/api/ability/content_video_predict', methods=['POST'])
 def content_video_predict():
-    result = {
-        "code": 0,
-        "msg": "success",
-    }
-    result['total'] = 0
-    file = request.files['file']  # Assuming the file input field is named 'file'
-    score = request.form.get('score')
-    if score is None:
-        score = 0.4
-    page_num = request.form.get('pageNum')
-    if page_num is None:
-        page_num = 1
-    page_size = request.form.get('pageSize')
-    if page_size is None:
-        page_size = 10
+    result = {"code": 0, "msg": "success", 'total': 0}
+    file = request.files.get('file')  # Assuming the file input field is named 'file'
+    score = request.form.get('score', 0.4)
+    page_num = request.form.get('pageNum', 1)
+    page_size = request.form.get('pageSize', 10)
 
-    library_type = request.form.get('libraryType')
     query = {
-        "match_all": {}
+        "bool": {
+            "must": [
+                {
+                    "match_all": {}
+                }
+            ]
+        }
     }
 
-    if library_type == "video":
-        query = {
-            "match_phrase": {
-                "tag": "video"
-            }
-        }
+    # 存在none值的情况的请求值
+    must_condition_list = []
+    library_type = request.form.get('libraryType')
+    category_id = request.form.get('category_id')
+    column_id = request.form.get('column_id')
+    create_user_id = request.form.get('create_user_id')
+    site_id = request.form.get('site_id')
 
-    if library_type == "public":
-        query = {
-            "match_phrase": {
-                "from_source": "public"
-            }
-        }
-    elif library_type == "article":
-        query = {
-            "match_phrase": {
-                "from_source": "article"
-            }
-        }
+    if library_type is not None:
+
+        if library_type == "video":
+            must_condition_list.append({
+                "match_phrase": {
+                    "tag": "video"
+                }
+            })
+
+        if library_type == "public":
+            must_condition_list.append({
+                "match_phrase": {
+                    "from_source": "public"
+                }
+            })
+        elif library_type == "article":
+            must_condition_list.append({
+                "match_phrase": {
+                    "from_source": "article"
+                }
+            })
+
+        if category_id is not None:
+            must_condition_list.append({
+                "match_phrase": {
+                    library_type + "_category_id": category_id
+                }
+            })
+
+        if column_id is not None:
+            must_condition_list.append({
+                "match_phrase": {
+                    library_type + "_column_id": column_id
+                }
+            })
+
+        if create_user_id is not None:
+            must_condition_list.append({
+                "match_phrase": {
+                    library_type + "_create_user_id": create_user_id
+                }
+            })
+
+        if site_id is not None:
+            must_condition_list.append({
+                "match_phrase": {
+                    library_type + "_site_id": site_id
+                }
+            })
+
+    if len(must_condition_list) > 0:
+        query['bool']['must'] = must_condition_list
 
     offset = (int(page_num) - 1) * int(page_size)
 
     if file:
         uuid_filename = generator.generate_unique_value()
-        print("uuid_filename")
-        print(uuid_filename)
-
         dir_path = video_predict_dir + uuid_filename + ".jpg"
         file.save(dir_path)  # Replace with the path where you want to save the file
 
         start = time.time()
         search_vectors = video_model.get_frame_embedding(dir_path)
 
+        min_score = 1000 + 0.8
+
         body = {
+            "min_score": min_score,
             "from": offset,
             "size": page_size,
             "query": {
@@ -701,6 +737,7 @@ def content_video_predict():
                     }
                 }
             },
+            "_source": ["key_id", "hdfs_path", "earliest_video_id", "tag", "from_source"],
             "collapse": {
                 "field": "earliest_video_id.raw"
             }
@@ -714,9 +751,6 @@ def content_video_predict():
             if single['_source']['earliest_video_id'] is not None:
                 earliest_video_id = str(single['_source']['earliest_video_id']).split("_")[0]
             current_score = single['_score'] - 1000
-            if float(current_score) < 0.9:
-                logger.info(f"{single['_id']} document current_score: {current_score} < score: {score}")
-                continue
             tmp = {
                 'id': single['_id'],
                 'score': current_score,
@@ -726,17 +760,16 @@ def content_video_predict():
             }
             search_result.append(tmp)
 
-        print('搜索耗时: ' + str(time.time() - start))
-        print("搜索结果: ")
-        print(search_result)
+        logger.info('搜索耗时: ' + str(time.time() - start))
+        logger.info(f"搜索结果: {search_result}")
         result['res'] = [search_result]
         result['total'] = total
+        video_service_v3.delete_video_file(dir_path)
+        logger.info(f"content_video_predict 删除临时文件: {dir_path}")
     else:
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
 
-    print('Result')
-    print(result)
     return jsonify(result)
 
 
@@ -812,6 +845,8 @@ def video_predict():
         print("搜索结果: ")
         print(search_result)
         result['res'] = [search_result]
+        video_service_v3.delete_video_file(dir_path)
+        logger.info(f"video_predict 删除临时文件: {dir_path}")
     else:
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
