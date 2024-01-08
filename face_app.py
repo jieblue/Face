@@ -620,6 +620,7 @@ def content_video_predict():
     score = request.form.get('score', 0.6)
     page_num = request.form.get('pageNum', 1)
     page_size = request.form.get('pageSize', 10)
+    public_type = request.form.get('public_type')
 
     query = {
         "bool": {
@@ -638,6 +639,13 @@ def content_video_predict():
     column_id = request.form.get('column_id')
     create_user_id = request.form.get('create_user_id')
     site_id = request.form.get('site_id')
+
+    if public_type is not None:
+        must_condition_list.append({
+            "match_phrase": {
+                "public_type": public_type
+            }
+        })
 
     if library_type is not None:
 
@@ -702,7 +710,7 @@ def content_video_predict():
         start = time.time()
         search_vectors = video_model.get_frame_embedding(dir_path)
 
-        min_score = 1000 + 0.8
+        min_score = 1000 + 0.9
 
         body = {
             "min_score": min_score,
