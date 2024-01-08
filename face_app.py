@@ -640,14 +640,7 @@ def content_video_predict():
     create_user_id = request.form.get('create_user_id')
     site_id = request.form.get('site_id')
 
-    if public_type is not None:
-        must_condition_list.append({
-            "match_phrase": {
-                "public_type": public_type
-            }
-        })
-
-    if library_type is not None:
+    if library_type is not None and library_type != "":
 
         if library_type == "video":
             must_condition_list.append({
@@ -662,6 +655,13 @@ def content_video_predict():
                     "from_source": "public"
                 }
             })
+
+            if public_type is not None and public_type != "":
+                must_condition_list.append({
+                    "match_phrase": {
+                        "public_type": public_type
+                    }
+                })
         elif library_type == "article":
             must_condition_list.append({
                 "match_phrase": {
@@ -669,28 +669,28 @@ def content_video_predict():
                 }
             })
 
-        if category_id is not None:
+        if category_id is not None and category_id != "":
             must_condition_list.append({
                 "match_phrase": {
                     library_type + "_category_id": category_id
                 }
             })
 
-        if column_id is not None:
+        if column_id is not None and column_id != "":
             must_condition_list.append({
                 "match_phrase": {
                     library_type + "_column_id": column_id
                 }
             })
 
-        if create_user_id is not None:
+        if create_user_id is not None and create_user_id != "":
             must_condition_list.append({
                 "match_phrase": {
                     library_type + "_create_user_id": create_user_id
                 }
             })
 
-        if site_id is not None:
+        if site_id is not None and site_id != "":
             must_condition_list.append({
                 "match_phrase": {
                     library_type + "_site_id": site_id
