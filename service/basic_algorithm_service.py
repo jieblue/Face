@@ -22,7 +22,7 @@ def extract_key_frame_list(video_file: VideoFile) -> List[KeyFrame]:
     # Signal that we only want to look at keyframes.
     stream = container.streams.video[0]
 
-    stream.codec_context.skip_frame = 'NONKEY'
+    stream.codec_context.skip_frame = 'NONINTRA'
     frames = container.decode(stream)
     frame_num = 1
     # 关键帧提取
