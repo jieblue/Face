@@ -670,30 +670,34 @@ def content_video_predict():
             })
 
         if category_id is not None and category_id != "":
+            category_id_arr = category_id.split(",")
             must_condition_list.append({
-                "match_phrase": {
-                    library_type + "_category_id": category_id
+                "terms": {
+                    library_type + "_category_id": category_id_arr
                 }
             })
 
         if column_id is not None and column_id != "":
+            column_id_arr = column_id.split(",")
             must_condition_list.append({
-                "match_phrase": {
-                    library_type + "_column_id": column_id
+                "terms": {
+                    library_type + "_column_id": column_id_arr
                 }
             })
 
         if create_user_id is not None and create_user_id != "":
+            create_user_id_arr = create_user_id.split(",")
             must_condition_list.append({
-                "match_phrase": {
-                    library_type + "_create_user_id": create_user_id
+                "terms": {
+                    library_type + "_create_user_id": create_user_id_arr
                 }
             })
 
         if site_id is not None and site_id != "":
+            site_id_arr = site_id.split(",")
             must_condition_list.append({
-                "match_phrase": {
-                    library_type + "_site_id": site_id
+                "terms": {
+                    library_type + "_site_id": site_id_arr
                 }
             })
 
