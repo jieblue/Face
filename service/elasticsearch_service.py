@@ -39,20 +39,10 @@ similarity_search = "cosineSimilarity(params.query_vector, 'embedding') + 1000"
 
 def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKeyFrameEmbedding]):
     actions = []
-    index_name = None
-    if file_data.tag == 'video':
-        index_name = image_faces_v1_index
-        logger.info(f"Insert face embedding for video {file_data.video_id}")
-    elif file_data.tag == 'content':
-        index_name = content_faces_v1_index
-        logger.info(f"Insert face embedding for content {file_data.video_id}")
-
-    if index_name is None:
-        raise ValueError(f"Index is None, Invalid tag: {file_data.tag}")
 
     for face_frame_embedding in face_frame_embedding_list:
 
-        if file_data.tag == 'video':
+        if file_data.tag == 'video' or file_data.tag == 'content':
             main_face_election(face_frame_embedding)
         if float(face_frame_embedding.quantity_score) > 40:
             earliest_video_id = face_frame_embedding.earliest_video_id
@@ -61,7 +51,7 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
             if file_data.library_type is not None:
                 face_frame_embedding.key_id = f"{face_frame_embedding.key_id}_{file_data.library_type}"
             action = {
-                "_index": index_name,
+                "_index": image_faces_v1_index,
                 "_id": face_frame_embedding.key_id,
                 "_source": {
                     'key_id': face_frame_embedding.key_id,
@@ -79,25 +69,26 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
                 action['_source']['from_source'] = file_data.library_type
             actions.append(action)
     res = bulk(es_client, actions)
-    logger.info(f"FaceKeyFrameEmbedding bulk insert elasticsearch {index_name} result is {res}")
     return res
 
 
 def main_face_election(face_frame_embedding_info):
     logger.info(f"Main face election for {face_frame_embedding_info.key_id}")
     main_face_info = search_main_face(face_frame_embedding_info)
+
     # 无法找到主人像的信息，并且质量得分大约0.4分才可选举为主人像
     if main_face_info is None and float(face_frame_embedding_info.quantity_score) > 40:
-        main_face_info = MainFaceKeyFrameEmbedding(key_id=face_frame_embedding_info.key_id,
-                                                   object_id=face_frame_embedding_info.key_id,
-                                                   quantity_score=face_frame_embedding_info.quantity_score,
-                                                   embedding=face_frame_embedding_info.embedding,
-                                                   hdfs_path=face_frame_embedding_info.hdfs_path,
-                                                   recognition_state="unidentification")
-        insert_result = insert_main_face(main_face_info)
+        if face_frame_embedding_info.tag == 'video':
+            main_face_info = MainFaceKeyFrameEmbedding(key_id=face_frame_embedding_info.key_id,
+                                                       object_id=face_frame_embedding_info.key_id,
+                                                       quantity_score=face_frame_embedding_info.quantity_score,
+                                                       embedding=face_frame_embedding_info.embedding,
+                                                       hdfs_path=face_frame_embedding_info.hdfs_path,
+                                                       recognition_state="unidentification")
+            insert_result = insert_main_face(main_face_info)
+            logger.info(f"Insert main face {main_face_info.key_id} to Milvus. {insert_result}")
 
-        face_frame_embedding_info.object_id = main_face_info.key_id
-        logger.info(f"Insert main face {main_face_info.key_id} to Milvus. {insert_result}")
+        face_frame_embedding_info.object_id = face_frame_embedding_info.key_id
     elif main_face_info is not None and float(face_frame_embedding_info.quantity_score) > 40:
         logger.info(f"Main face {main_face_info.key_id} found in Milvus. {main_face_info}")
         face_frame_embedding_info.object_id = main_face_info.key_id
@@ -111,8 +102,9 @@ def main_face_election(face_frame_embedding_info):
             main_face_info.embedding = face_frame_embedding_info.embedding
             main_face_info.hdfs_path = face_frame_embedding_info.hdfs_path
 
-            update_result = update_main_face(main_face_info)
-            logger.info(f"Update main face {main_face_info.key_id} to Milvus. {update_result}")
+            if face_frame_embedding_info.tag == 'video':
+                update_result = update_main_face(main_face_info)
+                logger.info(f"Update main face {main_face_info.key_id} to Milvus. {update_result}")
     else:
         logger.info(f"Main face {face_frame_embedding_info.key_id} quality score is lower than 40")
         face_frame_embedding_info.object_id = "notgoodface"
@@ -149,6 +141,7 @@ def update_main_face(main_face_info: MainFaceKeyFrameEmbedding):
 
 def search_main_face(face_frame_embedding: FaceKeyFrameEmbedding) -> MainFaceKeyFrameEmbedding:
     body = {
+        'min_score': 1000.6,
         "size": 1,
         "query": {
             "script_score": {
@@ -174,22 +167,22 @@ def search_main_face(face_frame_embedding: FaceKeyFrameEmbedding) -> MainFaceKey
     main_face_list = []
     for one in search_res:
         current_score = one['_score'] - 1000
-        if current_score >= 0.6:
-            logger.info(f"Search main avatar result: {one} and score is {current_score}")
-            main_face_info = MainFaceKeyFrameEmbedding(key_id=one['_id'], object_id=one['_source']['object_id'],
-                                                       quantity_score=one['_source']['quality_score'],
-                                                       hdfs_path=one['_source']['hdfs_path'],
-                                                       recognition_state=one['_source']['recognition_state'])
+        logger.info(f"Search main avatar result: {one} and score is {current_score}")
+        main_face_info = MainFaceKeyFrameEmbedding(key_id=one['_id'], object_id=one['_source']['object_id'],
+                                                   quantity_score=one['_source']['quality_score'],
+                                                   hdfs_path=one['_source']['hdfs_path'],
+                                                   recognition_state=one['_source']['recognition_state'])
 
-            main_face_list.append(main_face_info)
+        main_face_list.append(main_face_info)
 
     return main_face_list[0] if len(main_face_list) > 0 else None
 
 
 def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
     embedding = model.turn2embeddings(image, enhance=enhance)
-
+    min_score = score + 1000
     body = {
+        "min_score": min_score,
         "from": start,
         "size": size,
         "query": {
@@ -211,18 +204,17 @@ def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=Fal
     search_res = search_res['hits']['hits']
     for one in search_res:
         current_score = one['_score'] - 1000
-        if current_score >= score:
-            logger.info(f"Search single result: {one} and score is {current_score}")
-            tmp = {
-                'id': one['_id'],
-                'object_id': one['_source']['object_id'],
-                'hdfs_path': one['_source']['hdfs_path'],
-                'score': current_score,
-                'quality_score': one['_source']['quality_score'],
-                'recognition_state': one['_source']['recognition_state']
-            }
+        logger.info(f"Search single result: {one} and score is {current_score}")
+        tmp = {
+            'id': one['_id'],
+            'object_id': one['_source']['object_id'],
+            'hdfs_path': one['_source']['hdfs_path'],
+            'score': current_score,
+            'quality_score': one['_source']['quality_score'],
+            'recognition_state': one['_source']['recognition_state']
+        }
 
-            result.append(tmp)
+        result.append(tmp)
 
     return result
 
@@ -230,13 +222,26 @@ def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=Fal
 def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
     embedding = model.turn2embeddings(image, enhance=enhance)
 
+    min_score = score + 1000
     body = {
+        "min_score": min_score,
         "from": start,
         "size": size,
         "query": {
             "script_score": {
                 "query": {
-                    "match_all": {}
+                   "bool": {
+                        "must_not": [
+                            {
+                                "match_all": {}
+                            },
+                            {
+                                "match_phrase": {
+                                    "tag": "content"
+                                }
+                            }
+                        ]
+                    }
                 },
                 "script": {
                     "source": similarity_search,
@@ -252,20 +257,19 @@ def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, s
     search_res = search_res['hits']['hits']
     for one in search_res:
         current_score = one['_score'] - 1000
-        if current_score >= score:
-            logger.info(f"Search single result: {one} and score is {current_score}")
-            tmp = {
-                'id': one['_id'],
-                'object_id': one['_source']['object_id'],
-                'hdfs_path': one['_source']['hdfs_path'],
-                'score': current_score,
-                'quality_score': one['_source']['quality_score'],
-                'video_id_arr': one['_source']['video_id_arr'],
-                'earliest_video_id': one['_source']['earliest_video_id'],
-                'file_name': one['_source']['file_name']
-            }
+        logger.info(f"Search single result: {one} and score is {current_score}")
+        tmp = {
+            'id': one['_id'],
+            'object_id': one['_source']['object_id'],
+            'hdfs_path': one['_source']['hdfs_path'],
+            'score': current_score,
+            'quality_score': one['_source']['quality_score'],
+            'video_id_arr': one['_source']['video_id_arr'],
+            'earliest_video_id': one['_source']['earliest_video_id'],
+            'file_name': one['_source']['file_name']
+        }
 
-            result.append(tmp)
+        result.append(tmp)
 
     return [result]
 
@@ -273,7 +277,10 @@ def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, s
 def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
     embedding = model.turn2embeddings(image, enhance=enhance)
 
+    min_score = score + 1000
+
     body = {
+        "min_score": min_score,
         "from": start,
         "size": size,
         "query": {
@@ -295,18 +302,18 @@ def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=Fal
     search_res = search_res['hits']['hits']
     for one in search_res:
         current_score = one['_score'] - 1000
-        if current_score >= score:
-            logger.info(f"Search single result: {one} and score is {current_score}")
-            tmp = {
-                'id': one['_id'],
-                'object_id': one['_source']['object_id'],
-                'hdfs_path': one['_source']['hdfs_path'],
-                'score': current_score,
-                'quality_score': one['_source']['quality_score'],
-                'recognition_state': one['_source']['recognition_state']
-            }
 
-            result.append(tmp)
+        logger.info(f"Search single result: {one} and score is {current_score}")
+        tmp = {
+            'id': one['_id'],
+            'object_id': one['_source']['object_id'],
+            'hdfs_path': one['_source']['hdfs_path'],
+            'score': current_score,
+            'quality_score': one['_source']['quality_score'],
+            'recognition_state': one['_source']['recognition_state']
+        }
+
+        result.append(tmp)
 
     return result
 
