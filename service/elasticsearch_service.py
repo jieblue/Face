@@ -61,7 +61,7 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
             if file_data.library_type is not None:
                 face_frame_embedding.key_id = f"{face_frame_embedding.key_id}_{file_data.library_type}"
             action = {
-                "_index": image_faces_v1_index,
+                "_index": index_name,
                 "_id": face_frame_embedding.key_id,
                 "_source": {
                     'key_id': face_frame_embedding.key_id,
@@ -79,7 +79,7 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
                 action['_source']['from_source'] = file_data.library_type
             actions.append(action)
     res = bulk(es_client, actions)
-    logger.info(f"FaceKeyFrameEmbedding bulk insert result is {res}")
+    logger.info(f"FaceKeyFrameEmbedding bulk insert elasticsearch {index_name} result is {res}")
     return res
 
 

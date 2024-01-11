@@ -14,7 +14,7 @@ class VideoModel:
     def __init__(self, config, gpu_id=0):
         providers = [
             ('CUDAExecutionProvider', {
-                'device_id': 0,
+                'device_id': gpu_id,
                 'arena_extend_strategy': 'kNextPowerOfTwo',
                 # 'gpu_mem_limit': 2 * 1024 * 1024 * 1024,
                 'cudnn_conv_algo_search': 'DEFAULT',
