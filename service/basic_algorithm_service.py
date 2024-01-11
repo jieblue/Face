@@ -77,7 +77,7 @@ def extract_image_key_frame_list(image_file: ImageFile) -> List[KeyFrame]:
     frame_num = 10000
     for file in os.listdir(image_file.file_path):
         file_path = os.path.join(image_file.file_path, file)
-        if not os.path.isfile(file_path):
+        if not os.path.isfile(file_path) or file.startswith("."):
             continue
         np_frame = cv2.imread(file_path)
         key_frame = KeyFrame(file_name=image_file.file_name, video_id=image_file.image_id, frame_num=frame_num,

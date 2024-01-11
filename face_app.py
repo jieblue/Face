@@ -628,7 +628,14 @@ def content_video_predict():
                 {
                     "match_all": {}
                 }
-            ]
+            ],
+            "must_not": [
+                {
+                    "match_phrase": {
+                        "del_flag": "1"
+                    }
+                }
+            ],
         }
     }
 
