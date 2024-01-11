@@ -230,11 +230,14 @@ def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, s
         "query": {
             "script_score": {
                 "query": {
-                   "bool": {
-                        "must_not": [
+                    "bool": {
+                        "must": [
                             {
                                 "match_all": {}
-                            },
+                            }
+
+                        ],
+                        "must_not": [
                             {
                                 "match_phrase": {
                                     "tag": "content"
