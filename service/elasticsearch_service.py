@@ -253,7 +253,11 @@ def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, s
                     }
                 }
             }
+        },
+        "collapse": {
+            "field": "earliest_video_id.raw"
         }
+
     }
     result = []
     search_res = es_client.search(index=index_name, body=body)
