@@ -601,6 +601,7 @@ def main_face_predict():
         res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, image, enhance=False,
                                                            score=float(score), start=offset, size=int(page_size))
 
+        video_service_v3.delete_video_file(dir_path)
         logger.info('搜索耗时: ' + str(time.time() - start))
         logger.info(f"搜索结果: {res}")
         result['res'] = [res]
