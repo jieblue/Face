@@ -325,7 +325,7 @@ def update_main_avatar():
     hdfs_path = request.form.get('hdfsPath')
 
     # Search for the main avatar in Elasticsearch
-    res = elasticsearch_service.search_face_image(face_model, main_avatar_v1_index, avatar_image, enhance=False,
+    res, total = elasticsearch_service.search_face_image(face_model, main_avatar_v1_index, avatar_image, enhance=False,
                                                   score=float(score),
                                                   start=0, size=10)
 
@@ -376,7 +376,7 @@ def update_main_avatar():
     # Update in Elasticsearch
     res = es_client.update(index=main_avatar_v1_index, id=object_id, body=body)
     logger.info(f"Update main face {object_id} in Elasticsearch. {res}")
-
+    result['total'] = total
     result["objectId"] = object_id
     result['msg'] = "Update successful"
     result['qualityScore'] = str(float(face_score))
@@ -551,7 +551,54 @@ def face_predict():
 
         start = time.time()
 
-        res = elasticsearch_service.search_face_image(face_model, image_faces_v1_index, image, enhance=False,
+        res, total = elasticsearch_service.search_face_image(face_model, image_faces_v1_index, image, enhance=False,
+                                                      score=float(score), start=offset, size=int(page_size))
+
+        logger.info('搜索耗时: ' + str(time.time() - start))
+        logger.info(f"搜索结果: {res}")
+        result['res'] = res
+        result['total'] = total
+        video_service_v3.delete_video_file(dir_path)
+        logger.info('face_predict delete temp file: ' + dir_path)
+    else:
+        result["code"] = -1
+        result["msg"] = "File uploaded Failure!"
+    return jsonify(result)
+
+@app.route('/api/ability/content_face_predict', methods=['POST'])
+def content_face_predict():
+    result = {
+        "code": 0,
+        "msg": "success",
+    }
+    file = request.files['file']  # Assuming the file input field is named 'file'
+    score = request.form.get('score')
+    if score is None:
+        score = 0.4
+    page_num = request.form.get('pageNum')
+    if page_num is None:
+        page_num = 1
+    page_size = request.form.get('pageSize')
+    if page_size is None:
+        page_size = 10
+    logger.info("score:" + str(score))
+    logger.info("page_num:" + str(page_num))
+    logger.info("page_size:" + str(page_size))
+
+    offset = (int(page_num) - 1) * int(page_size)
+
+    if file:
+        uuid_filename = generator.generate_unique_value()
+        logger.info("uuid_filename: " + uuid_filename)
+
+        dir_path = face_predict_dir + '/' + uuid_filename + ".jpg"
+        file.save(dir_path)  # Replace with the path where you want to save the file
+
+        image = cv_imread(dir_path)
+
+        start = time.time()
+
+        res = elasticsearch_service.search_content_face_image(face_model, image_faces_v1_index, image, enhance=False,
                                                       score=float(score), start=offset, size=int(page_size))
 
         logger.info('搜索耗时: ' + str(time.time() - start))
@@ -858,9 +905,9 @@ def video_predict():
     return jsonify(result)
 
 
-def normalized_euclidean_distance(L2, dim=512):
+def normalized_euclidean_distance(l2, dim=512):
     dim_sqrt = math.sqrt(dim)
-    return 1 / (1 + L2 / dim_sqrt)
+    return 1 / (1 + l2 / dim_sqrt)
 
 
 if __name__ == '__main__':
