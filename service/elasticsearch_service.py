@@ -219,6 +219,49 @@ def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=Fal
     return result
 
 
+def search_content_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
+    embedding = model.turn2embeddings(image, enhance=enhance)
+
+    min_score = score + 1000
+    body = {
+        "min_score": min_score,
+        "from": start,
+        "size": size,
+        "query": {
+            "script_score": {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {
+                                "match_all": {}
+                            }
+
+                        ],
+                        "must_not": [
+                            {
+                                "match_phrase": {
+                                    "tag": "content"
+                                }
+                            }
+                        ]
+                    }
+                },
+                "script": {
+                    "source": similarity_search,
+                    "params": {
+                        "query_vector": embedding[0]
+                    }
+                }
+            }
+        },
+        "collapse": {
+            "field": "earliest_video_id.raw"
+        }
+
+    }
+    return search_face_similarity(index_name, body)
+
+
 def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
     embedding = model.turn2embeddings(image, enhance=enhance)
 
@@ -259,8 +302,13 @@ def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, s
         }
 
     }
+    return search_face_similarity(index_name, body)
+
+
+def search_face_similarity(index_name: str, body):
     result = []
     search_res = es_client.search(index=index_name, body=body)
+    total = search_res['hits']['total']['value']
     search_res = search_res['hits']['hits']
     for one in search_res:
         current_score = one['_score'] - 1000
@@ -277,8 +325,7 @@ def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, s
         }
 
         result.append(tmp)
-
-    return [result]
+    return [result], total
 
 
 def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):

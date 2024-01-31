@@ -325,7 +325,7 @@ def update_main_avatar():
     hdfs_path = request.form.get('hdfsPath')
 
     # Search for the main avatar in Elasticsearch
-    res = elasticsearch_service.search_face_image(face_model, main_avatar_v1_index, avatar_image, enhance=False,
+    res, total = elasticsearch_service.search_face_image(face_model, main_avatar_v1_index, avatar_image, enhance=False,
                                                   score=float(score),
                                                   start=0, size=10)
 
@@ -376,7 +376,7 @@ def update_main_avatar():
     # Update in Elasticsearch
     res = es_client.update(index=main_avatar_v1_index, id=object_id, body=body)
     logger.info(f"Update main face {object_id} in Elasticsearch. {res}")
-
+    result['total'] = total
     result["objectId"] = object_id
     result['msg'] = "Update successful"
     result['qualityScore'] = str(float(face_score))
@@ -551,19 +551,19 @@ def face_predict():
 
         start = time.time()
 
-        res = elasticsearch_service.search_face_image(face_model, image_faces_v1_index, image, enhance=False,
+        res, total = elasticsearch_service.search_face_image(face_model, image_faces_v1_index, image, enhance=False,
                                                       score=float(score), start=offset, size=int(page_size))
 
         logger.info('搜索耗时: ' + str(time.time() - start))
         logger.info(f"搜索结果: {res}")
         result['res'] = res
+        result['total'] = total
         video_service_v3.delete_video_file(dir_path)
         logger.info('face_predict delete temp file: ' + dir_path)
     else:
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
     return jsonify(result)
-
 
 @app.route('/api/ability/main_face_predict', methods=['POST'])
 def main_face_predict():
@@ -601,6 +601,7 @@ def main_face_predict():
         res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, image, enhance=False,
                                                            score=float(score), start=offset, size=int(page_size))
 
+        video_service_v3.delete_video_file(dir_path)
         logger.info('搜索耗时: ' + str(time.time() - start))
         logger.info(f"搜索结果: {res}")
         result['res'] = [res]
@@ -611,6 +612,169 @@ def main_face_predict():
 
 
 video_predict_dir = '/tmp/video_predict_tmp'
+
+
+@app.route('/api/ability/content_face_predict', methods=['POST'])
+def content_face_predict():
+    result = {"code": 0, "msg": "success", 'total': 0}
+    file = request.files.get('file')  # Assuming the file input field is named 'file'
+    score = request.form.get('score', 0.6)
+    page_num = request.form.get('pageNum', 1)
+    page_size = request.form.get('pageSize', 10)
+    public_type = request.form.get('public_type')
+
+    query = {
+        "bool": {
+            "must": [
+                {
+                    "match_all": {}
+                }
+            ],
+            "must_not": [
+                {
+                    "match_phrase": {
+                        "del_flag": "1"
+                    }
+                }
+            ],
+        }
+    }
+
+    # 存在none值的情况的请求值
+    must_condition_list = []
+    library_type = request.form.get('libraryType')
+    category_id = request.form.get('category_id')
+    column_id = request.form.get('column_id')
+    create_user_id = request.form.get('create_user_id')
+    site_id = request.form.get('site_id')
+
+    if library_type is not None and library_type != "":
+
+        if library_type == "video":
+            must_condition_list.append({
+                "match_phrase": {
+                    "tag": "video"
+                }
+            })
+
+        if library_type == "public":
+            must_condition_list.append({
+                "match_phrase": {
+                    "from_source": "public"
+                }
+            })
+
+            if public_type is not None and public_type != "":
+                must_condition_list.append({
+                    "match_phrase": {
+                        "public_type": public_type
+                    }
+                })
+        elif library_type == "article":
+            must_condition_list.append({
+                "match_phrase": {
+                    "from_source": "article"
+                }
+            })
+
+        if category_id is not None and category_id != "":
+            category_id_arr = category_id.split(",")
+            must_condition_list.append({
+                "terms": {
+                    library_type + "_category_id": category_id_arr
+                }
+            })
+
+        if column_id is not None and column_id != "":
+            column_id_arr = column_id.split(",")
+            must_condition_list.append({
+                "terms": {
+                    library_type + "_column_id": column_id_arr
+                }
+            })
+
+        if create_user_id is not None and create_user_id != "":
+            create_user_id_arr = create_user_id.split(",")
+            must_condition_list.append({
+                "terms": {
+                    library_type + "_create_user_id": create_user_id_arr
+                }
+            })
+
+        if site_id is not None and site_id != "":
+            site_id_arr = site_id.split(",")
+            must_condition_list.append({
+                "terms": {
+                    library_type + "_site_id": site_id_arr
+                }
+            })
+
+    if len(must_condition_list) > 0:
+        query['bool']['must'] = must_condition_list
+
+    offset = (int(page_num) - 1) * int(page_size)
+
+    if file:
+        uuid_filename = generator.generate_unique_value()
+        dir_path = video_predict_dir + uuid_filename + ".jpg"
+        file.save(dir_path)  # Replace with the path where you want to save the file
+        image = cv_imread(dir_path)
+
+        start = time.time()
+        search_vectors = face_model.turn2embeddings(image, enhance=False)
+
+        min_score = 1000 + 0.5
+
+        body = {
+            "min_score": min_score,
+            "from": offset,
+            "size": page_size,
+            "query": {
+                "script_score": {
+                    "query": query,
+                    "script": {
+                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
+                        "params": {
+                            "query_vector": search_vectors[0]
+                        }
+                    }
+                }
+            },
+            "collapse": {
+                "field": "earliest_video_id.raw"
+            }
+        }
+        search_result = []
+        search_res = es_client.search(index=image_faces_v1_index, body=body)
+        total = search_res['hits']['total']['value']
+        search_res = search_res['hits']['hits']
+        for one in search_res:
+            current_score = one['_score'] - 1000
+            logger.info(f"Search single result: {one} and score is {current_score}")
+            tmp = {
+                'id': one['_id'],
+                'object_id': one['_source']['object_id'],
+                'hdfs_path': one['_source']['hdfs_path'],
+                'score': current_score,
+                'quality_score': one['_source']['quality_score'],
+                'video_id_arr': one['_source']['video_id_arr'],
+                'earliest_video_id': one['_source']['earliest_video_id'],
+                'file_name': one['_source']['file_name']
+            }
+
+            search_result.append(tmp)
+
+        logger.info('搜索耗时: ' + str(time.time() - start))
+        logger.info(f"搜索结果: {search_result}")
+        result['res'] = [search_result]
+        result['total'] = total
+        video_service_v3.delete_video_file(dir_path)
+        logger.info(f"content_face_predict 删除临时文件: {dir_path}")
+    else:
+        result["code"] = -1
+        result["msg"] = "File uploaded Failure!"
+
+    return jsonify(result)
 
 
 @app.route('/api/ability/content_video_predict', methods=['POST'])
@@ -857,9 +1021,9 @@ def video_predict():
     return jsonify(result)
 
 
-def normalized_euclidean_distance(L2, dim=512):
+def normalized_euclidean_distance(l2, dim=512):
     dim_sqrt = math.sqrt(dim)
-    return 1 / (1 + L2 / dim_sqrt)
+    return 1 / (1 + l2 / dim_sqrt)
 
 
 if __name__ == '__main__':
