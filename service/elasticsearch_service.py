@@ -259,26 +259,8 @@ def search_content_face_image(model: Face_Onnx, index_name: str, image, enhance=
         }
 
     }
-    result = []
-    search_res = es_client.search(index=index_name, body=body)
-    search_res = search_res['hits']['hits']
-    for one in search_res:
-        current_score = one['_score'] - 1000
-        logger.info(f"Search single result: {one} and score is {current_score}")
-        tmp = {
-            'id': one['_id'],
-            'object_id': one['_source']['object_id'],
-            'hdfs_path': one['_source']['hdfs_path'],
-            'score': current_score,
-            'quality_score': one['_source']['quality_score'],
-            'video_id_arr': one['_source']['video_id_arr'],
-            'earliest_video_id': one['_source']['earliest_video_id'],
-            'file_name': one['_source']['file_name']
-        }
+    return search_face_similarity(index_name, body)
 
-        result.append(tmp)
-
-    return [result]
 
 def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
     embedding = model.turn2embeddings(image, enhance=enhance)
@@ -320,6 +302,10 @@ def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, s
         }
 
     }
+    return search_face_similarity(index_name, body)
+
+
+def search_face_similarity(index_name: str, body):
     result = []
     search_res = es_client.search(index=index_name, body=body)
     total = search_res['hits']['total']['value']
