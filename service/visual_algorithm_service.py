@@ -67,6 +67,7 @@ def extract_face_list(key_frame_list: List[KeyFrame]) -> List[FaceKeyFrame]:
                                           timestamp=key_frame.timestamp, face_num=face_num, face_frame=face_frame,
                                           tag=key_frame.tag)
             face_num = face_num + 1
+            logger.info(f"Extracted face num {face_key_frame.face_num} in {key_frame.frame_num} frames ")
             face_key_frame_list.append(face_key_frame)
 
     return face_key_frame_list
