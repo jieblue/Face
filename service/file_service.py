@@ -2,6 +2,7 @@ import os
 from typing import List
 
 import cv2
+import requests
 
 from entity.frame_entity import FaceKeyFrame, KeyFrame
 from utils import log_util
@@ -33,7 +34,6 @@ def save_frame_to_disk(key_frame_list: List[KeyFrame]):
         logger.info(f"save_face_to_disk success {file_path}")
 
 
-
 # 写入压缩图片
 def write_compression_img(save_path, img, bit_rate=50, size=None):
     # save_path 存储路径  img输入图片
@@ -45,3 +45,19 @@ def write_compression_img(save_path, img, bit_rate=50, size=None):
     compression_params = [cv2.IMWRITE_JPEG_QUALITY, bit_rate]
     # 保存压缩后的图像
     cv2.imwrite(save_path, img, compression_params)
+
+
+def download_image_file(image_path, file_image_url, image_id):
+    if not os.path.exists(image_path):
+        logger.info(f"Create image file path {image_path}")
+        os.makedirs(image_path)
+
+    for url in file_image_url:
+        response = requests.get(url)
+        file_name = url.split("/")[-1]
+        file_path = os.path.join(image_path, image_id + "_" + file_name)
+        with open(file_path, "wb") as f:
+            f.write(response.content)
+        logger.info(f"Download image file {file_path} success.")
+
+    logger.info("Download image file success.")
