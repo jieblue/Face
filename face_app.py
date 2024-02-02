@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify, Response
 from entity.file_entity import VideoFile, ImageFile
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
-from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service
+from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service
 from service.core_service import *
 from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index
 from utils import log_util
@@ -476,6 +476,7 @@ def vectorization_v3() -> Response:
         return jsonify(json_result)
 
 
+
 @app.route('/api/ability/v3/image_vectorization', methods=['POST'])
 def image_vectorization_v3() -> Response:
     try:
@@ -488,6 +489,12 @@ def image_vectorization_v3() -> Response:
         library_type = json_data["libraryType"]
         if library_type is None or library_type == "":
             raise ValueError("libraryType is empty.")
+
+        file_image_url = json_data.get("fileImageUrl")
+        logger.info(f"Need to down load file_image_url: {file_image_url}")
+        if file_image_url is not None and file_image_url != "":
+            file_service.download_image_file(image_path, file_image_url, image_id)
+
         tag = json_data["tag"]
         file_name = image_id
         image_file = ImageFile(file_name=file_name, file_path=image_path, video_id=image_id, tag=tag,
