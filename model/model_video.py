@@ -16,7 +16,7 @@ class VideoModel:
             ('CUDAExecutionProvider', {
                 'device_id': gpu_id,
                 'arena_extend_strategy': 'kNextPowerOfTwo',
-                # 'gpu_mem_limit': 2 * 1024 * 1024 * 1024,
+                'gpu_mem_limit': 4 * 1024 * 1024 * 1024,
                 'cudnn_conv_algo_search': 'DEFAULT',
                 'do_copy_in_default_stream': True,
             }),
