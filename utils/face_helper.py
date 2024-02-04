@@ -106,6 +106,7 @@ def calculate_sharpness_score(image):
     return score
 
 #降低一半的人脸向量维度
+#input is list or np.array
 def down_face_embedding(embedding):
     new_embedding = np.array(embedding[::2])
     return new_embedding/(np.linalg.norm(new_embedding))

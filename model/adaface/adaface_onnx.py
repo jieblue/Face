@@ -40,6 +40,7 @@ class Adaface_Onnx:
         return embeddings[0][0]
 
 
+
 # 转为adace onnx 的输入
 # img 图片格式为 [ h, w, c] bgr 0-255整数
 def to_input(img):

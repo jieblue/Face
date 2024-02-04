@@ -3,7 +3,8 @@ from utils.img_util import read_img
 from model.adaface.adaface_onnx import Adaface_Onnx
 from model.gfpgan_onnx.gfpgan_onnx import GFPGAN_Onnx
 from model.retinaface.retinafce_onnx import Retinaface_Onnx
-from utils.face_helper import calculate_sharpness_score
+from utils.face_helper import calculate_sharpness_score, down_face_embedding
+
 
 # Face_Onnx 是.model包下四个模型的整合
 class Face_Onnx:
@@ -61,6 +62,30 @@ class Face_Onnx:
         for i, face in enumerate(faces):
 
             embedding = self.adaface.forward(face)
+            embeddings.append(embedding)
+
+        return embeddings
+
+
+    def turn2embeddings_256(self, img, enhance=False, aligned=False,
+                        confidence=0.99):
+        face_size = 512 if enhance else 112
+        if aligned:
+            faces = [img]
+        else:
+            faces = self.retinaface.extract_face(img, face_size,
+                                             confidence=confidence)
+
+        if enhance:
+            for i, face in enumerate(faces):
+                enhance_face = self.gfpgan.forward(face, resize=True)
+                faces[i] = enhance_face
+
+        embeddings = []
+        for i, face in enumerate(faces):
+
+            embedding = self.adaface.forward(face)
+            embedding = down_face_embedding(embedding)
             embeddings.append(embedding)
 
         return embeddings
