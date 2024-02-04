@@ -1027,6 +1027,41 @@ def video_predict():
     print(result)
     return jsonify(result)
 
+@app.route('/api/ability/delete_relevant_data', methods=['POST'])
+def delete_relevant_data():
+    result = {
+        "code": 0,
+        "msg": "success",
+    }
+    json_data = request.get_json()
+    video_id = json_data["videoId"]
+    if video_id is None:
+        result["code"] = -1
+        result["msg"] = "videoId is None"
+        return jsonify(result)
+
+    body = {
+      "query": {
+        "bool": {
+          "must": {
+            "match_all": {}
+          },
+          "filter": {
+            "term": {
+              "earliest_video_id": video_id
+            }
+          }
+        }
+      }
+    }
+
+    video_frame_result = es_client.delete_by_query(index=video_frames_v1_index, body=body)
+    logger.info(f"delete_relevant_data video_frame_result: {video_frame_result}")
+    image_face_result = es_client.delete_by_query(index=image_faces_v1_index, body=body)
+    logger.info(f"delete_relevant_data image_face_result: {image_face_result}")
+
+    result['msg'] = "delete_relevant_data success"
+    return jsonify(result)
 
 def normalized_euclidean_distance(l2, dim=512):
     dim_sqrt = math.sqrt(dim)
