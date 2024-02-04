@@ -104,3 +104,8 @@ def calculate_sharpness_score(image):
     # 上限400
     score  = min(score, 400)
     return score
+
+#降低一半的人脸向量维度
+def down_face_embedding(embedding):
+    new_embedding = np.array(embedding[::2])
+    return new_embedding/(np.linalg.norm(new_embedding))
