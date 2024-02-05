@@ -73,22 +73,37 @@ def main_face_list():
     page_num = request.form.get('pageNum', 1)
     page_size = request.form.get('pageSize', 10)
     recognition_state = request.form.get('recognitionState', 'unidentification')
+    object_id = request.form.get('objectId')
 
     logger.info(f"score: {score}")
     logger.info(f"page_num: {page_num}")
     logger.info(f"page_size: {page_size}")
     logger.info(f"recognition_state: {recognition_state}")
+    logger.info(f"object_id: {object_id}")
 
     offset = (int(page_num) - 1) * int(page_size)
 
+    must_condition_list = [{
+        "term": {
+            "recognition_state": recognition_state
+        }
+    }]
+
+    if object_id is not None:
+        must_condition_list.append({
+            "term": {
+                "object_id": object_id
+            }
+        })
+    query = {
+        "bool": {
+        }
+    }
+    query['bool']['must'] = must_condition_list
     body = {
         "from": offset,
         "size": page_size,
-        "query": {
-            "term": {
-                "recognition_state": recognition_state
-            }
-        },
+        "query": query,
         "_source": ["object_id", "hdfs_path", "quality_score", "recognition_state"]
     }
 
@@ -326,8 +341,8 @@ def update_main_avatar():
 
     # Search for the main avatar in Elasticsearch
     res, total = elasticsearch_service.search_face_image(face_model, main_avatar_v1_index, avatar_image, enhance=False,
-                                                  score=float(score),
-                                                  start=0, size=10)
+                                                         score=float(score),
+                                                         start=0, size=10)
 
     if len(res['hits']['hits']) == 0:
         result["code"] = -1
@@ -476,14 +491,14 @@ def vectorization_v3() -> Response:
         return jsonify(json_result)
 
 
-
 @app.route('/api/ability/v3/image_vectorization', methods=['POST'])
 def image_vectorization_v3() -> Response:
     try:
 
         json_data = request.get_json()
         logger.info(f"image_vectorization json_data: {json_data}")
-        image_path = json_data["imagePath"]
+        image_path = json_data[(""
+                                "")]
         image_id = json_data["imageId"]
         file_name = json_data["fileName"]
         library_type = json_data["libraryType"]
@@ -559,7 +574,7 @@ def face_predict():
         start = time.time()
 
         res, total = elasticsearch_service.search_face_image(face_model, image_faces_v1_index, image, enhance=False,
-                                                      score=float(score), start=offset, size=int(page_size))
+                                                             score=float(score), start=offset, size=int(page_size))
 
         logger.info('搜索耗时: ' + str(time.time() - start))
         logger.info(f"搜索结果: {res}")
@@ -571,6 +586,7 @@ def face_predict():
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
     return jsonify(result)
+
 
 @app.route('/api/ability/main_face_predict', methods=['POST'])
 def main_face_predict():
@@ -792,6 +808,7 @@ def content_video_predict():
     page_num = request.form.get('pageNum', 1)
     page_size = request.form.get('pageSize', 10)
     public_type = request.form.get('public_type')
+    filter_site = request.form.get('filter_site')
 
     query = {
         "bool": {
@@ -805,10 +822,34 @@ def content_video_predict():
                     "match_phrase": {
                         "del_flag": "1"
                     }
+                },
+                {
+                    "terms": {
+                        "FIELD": [
+                            "VALUE1",
+                            "VALUE2"
+                        ]
+                    }
                 }
             ],
         }
     }
+
+    must_not_arr = [{
+        "match_phrase": {
+            "del_flag": "1"
+        }
+    }]
+
+    if filter_site is not None and filter_site != "":
+        site_id_arr = filter_site.split(",")
+        must_not_arr.append({
+            "terms": {
+                "public_site_id": site_id_arr
+            }
+        })
+
+    query['bool']['must_not'] = must_not_arr
 
     # 存在none值的情况的请求值
     must_condition_list = []
@@ -850,7 +891,7 @@ def content_video_predict():
         if category_id is not None and category_id != "":
             category_id_arr = category_id.split(",")
             must_condition_list.append({
-                "terms": {
+                "term": {
                     library_type + "_category_id": category_id_arr
                 }
             })
@@ -858,7 +899,7 @@ def content_video_predict():
         if column_id is not None and column_id != "":
             column_id_arr = column_id.split(",")
             must_condition_list.append({
-                "terms": {
+                "term": {
                     library_type + "_column_id": column_id_arr
                 }
             })
@@ -866,7 +907,7 @@ def content_video_predict():
         if create_user_id is not None and create_user_id != "":
             create_user_id_arr = create_user_id.split(",")
             must_condition_list.append({
-                "terms": {
+                "term": {
                     library_type + "_create_user_id": create_user_id_arr
                 }
             })
@@ -874,13 +915,15 @@ def content_video_predict():
         if site_id is not None and site_id != "":
             site_id_arr = site_id.split(",")
             must_condition_list.append({
-                "terms": {
+                "term": {
                     library_type + "_site_id": site_id_arr
                 }
             })
 
     if len(must_condition_list) > 0:
         query['bool']['must'] = must_condition_list
+
+    logger.info(f"content_video_predict query: {query}")
 
     offset = (int(page_num) - 1) * int(page_size)
 
@@ -1027,6 +1070,7 @@ def video_predict():
     print(result)
     return jsonify(result)
 
+
 @app.route('/api/ability/delete_relevant_data', methods=['POST'])
 def delete_relevant_data():
     result = {
@@ -1041,18 +1085,18 @@ def delete_relevant_data():
         return jsonify(result)
 
     body = {
-      "query": {
-        "bool": {
-          "must": {
-            "match_all": {}
-          },
-          "filter": {
-            "term": {
-              "earliest_video_id": video_id
+        "query": {
+            "bool": {
+                "must": {
+                    "match_all": {}
+                },
+                "filter": {
+                    "term": {
+                        "earliest_video_id": video_id
+                    }
+                }
             }
-          }
         }
-      }
     }
 
     video_frame_result = es_client.delete_by_query(index=video_frames_v1_index, body=body)
@@ -1063,6 +1107,8 @@ def delete_relevant_data():
     result['msg'] = "delete_relevant_data success"
     return jsonify(result)
 
+
+@app.route('/api/ability/index', methods=['POST'])
 def normalized_euclidean_distance(l2, dim=512):
     dim_sqrt = math.sqrt(dim)
     return 1 / (1 + l2 / dim_sqrt)
