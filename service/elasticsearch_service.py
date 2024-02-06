@@ -379,7 +379,7 @@ def insert_frame_embedding(file_data: Any, key_frame_embedding_list: List[KeyFra
     if file_data.tag == 'video':
         index_name = video_frames_v1_index
         logger.info(f"Insert frame embedding for video {file_data.video_id}")
-    elif file_data.tag == 'content':
+    elif file_data.tag == 'content' or file_data.tag == 'video-index':
         index_name = video_frames_v1_index
         logger.info(f"Insert frame embedding for content {file_data.video_id}")
 
