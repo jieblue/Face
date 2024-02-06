@@ -497,8 +497,7 @@ def image_vectorization_v3() -> Response:
 
         json_data = request.get_json()
         logger.info(f"image_vectorization json_data: {json_data}")
-        image_path = json_data[(""
-                                "")]
+        image_path = json_data["imagePath"]
         image_id = json_data["imageId"]
         file_name = json_data["fileName"]
         library_type = json_data["libraryType"]
