@@ -89,7 +89,7 @@ def main_face_list():
         }
     }]
 
-    if object_id is not None:
+    if object_id is not None and object_id != "":
         must_condition_list.append({
             "term": {
                 "object_id": object_id
