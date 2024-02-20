@@ -880,10 +880,10 @@ def content_video_predict():
                         "public_type": public_type
                     }
                 })
-        elif library_type == "article":
+        else:
             must_condition_list.append({
                 "match_phrase": {
-                    "from_source": "article"
+                    "from_source": library_type
                 }
             })
 
