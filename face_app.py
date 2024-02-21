@@ -808,6 +808,8 @@ def content_video_predict():
     page_size = request.form.get('pageSize', 10)
     public_type = request.form.get('public_type')
     filter_site = request.form.get('filter_site')
+    topic_arr = request.form.get('topic_arr')
+
 
     query = {
         "bool": {
@@ -821,15 +823,15 @@ def content_video_predict():
                     "match_phrase": {
                         "del_flag": "1"
                     }
-                },
-                {
-                    "terms": {
-                        "FIELD": [
-                            "VALUE1",
-                            "VALUE2"
-                        ]
-                    }
                 }
+                # {
+                #     "terms": {
+                #         "FIELD": [
+                #             "VALUE1",
+                #             "VALUE2"
+                #         ]
+                #     }
+                # }
             ],
         }
     }
@@ -847,6 +849,8 @@ def content_video_predict():
                 "public_site_id": site_id_arr
             }
         })
+
+
 
     query['bool']['must_not'] = must_not_arr
 
@@ -878,6 +882,12 @@ def content_video_predict():
                 must_condition_list.append({
                     "match_phrase": {
                         "public_type": public_type
+                    }
+                })
+            if topic_arr is not None and topic_arr != "":
+                must_condition_list.append({
+                    "exists": {
+                        "field": "public_topic_arr"
                     }
                 })
         else:
@@ -951,7 +961,7 @@ def content_video_predict():
                     }
                 }
             },
-            "_source": ["key_id", "hdfs_path", "earliest_video_id", "tag", "from_source"],
+            "_source": ["key_id", "hdfs_path", "earliest_video_id", "tag", "from_source", "public_topic_arr"],
             "collapse": {
                 "field": "earliest_video_id.raw"
             }
@@ -970,8 +980,13 @@ def content_video_predict():
                 'score': current_score,
                 'hdfs_path': single['_source']['hdfs_path'],
                 'earliest_video_id': earliest_video_id,
-                'tag': single['_source']['tag']
+                'tag': single['_source']['tag'],
+                'from_source': single['_source']['from_source']
             }
+
+            if topic_arr is not None and topic_arr != "":
+                tmp['public_topic_arr'] = single['_source']['public_topic_arr']
+
             search_result.append(tmp)
 
         logger.info('搜索耗时: ' + str(time.time() - start))

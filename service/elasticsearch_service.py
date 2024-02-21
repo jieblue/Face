@@ -18,7 +18,8 @@ elasticsearch_user = es_config['username']
 elasticsearch_password = es_config['password']
 es_client = Elasticsearch(
     hosts=[{'host': elasticsearch_host, 'port': elasticsearch_port, 'scheme': "http"}],
-    http_auth=(elasticsearch_user, elasticsearch_password)
+    http_auth=(elasticsearch_user, elasticsearch_password),
+    timeout=60,
 )
 logger.info(f"Elasticsearch client host: {elasticsearch_host}, port: {elasticsearch_port}")
 logger.info(f"Elasticsearch client user: {elasticsearch_user}, password: {elasticsearch_password}")

@@ -129,6 +129,39 @@ def translate_face_embedding(face_frame_list: List[FaceKeyFrame]) -> List[FaceKe
     return grouping_face(face_frame_embedding_list)
 
 
+def translate_face_embedding_256(face_frame_list: List[FaceKeyFrame]) -> List[FaceKeyFrameEmbedding]:
+    face_frame_embedding_list = []
+    for face_frame_info in face_frame_list:
+        # 人脸质量得分
+        score = face_model.tface.forward(face_frame_info.face_frame)
+        # TODO 人脸质量得分低于多少分的可以启动是否增强人脸
+        # 转换向量
+        original_embedding = face_model.turn2embeddings_256(face_frame_info.face_frame,
+                                                            enhance=False,
+                                                            aligned=True,
+                                                            confidence=0.99)
+        # 压缩向量
+        face_frame_embedding = squeeze_faces(original_embedding)[0]
+
+        # 人员ID在主人像选举的时候进行添加， HDFS path， 关联的视频组， 在向量插入的时候进行关联
+        face_key_frame_embedding = FaceKeyFrameEmbedding(tag=face_frame_info.tag,
+                                                         key_id=face_frame_info.key_id,
+                                                         object_id=face_frame_info.key_id,
+                                                         quantity_score=score,
+                                                         embedding=face_frame_embedding,
+                                                         hdfs_path=face_frame_info.hdfs_path,
+                                                         video_id_arr=face_frame_info.video_id,
+                                                         earliest_video_id=face_frame_info.video_id,
+                                                         file_name=face_frame_info.file_name,
+                                                         frame_num=face_frame_info.frame_num,
+                                                         timestamp=face_frame_info.timestamp,
+                                                         face_num=face_frame_info.face_num)
+        logger.info(f"FaceKeyFrameEmbedding is {face_key_frame_embedding.key_id} is complete")
+        face_frame_embedding_list.append(face_key_frame_embedding)
+
+    return grouping_face(face_frame_embedding_list)
+
+
 def squeeze_faces(faces_list, threshold=0.48):
     """
     Squeezes the faces in the given list based on the given threshold.
