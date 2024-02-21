@@ -60,6 +60,28 @@ class VideoModel:
         logger.info("Extract feature time: {}".format(end_time - start_time))
         return feature
 
+    def get_frame_embedding_byte_256(self, frame_image):
+
+        # 提取每个帧的特征向量
+        start_time = time.time()
+        # 打开图像并进行预处理
+        # image = Image.open(frame_path).convert("RGB")
+        image = self.preprocess(frame_image).unsqueeze(0).numpy()
+        # 使用模型提取特征
+        # with torch.no_grad():
+        # 输入模型进行推理
+        feature = self.session.run(None, {self.input_name: image})
+        feature = torch.from_numpy(feature[0])
+        feature = torch.nn.functional.adaptive_avg_pool2d(feature, [1, 1])
+        feature = feature.reshape((1, 8, 256))
+        feature = torch.mean(feature, dim=1)
+        feature = feature.flatten().numpy()
+        feature = feature.tolist()
+
+        end_time = time.time()
+        logger.info("Extract feature time: {}".format(end_time - start_time))
+        return feature
+
     def get_frame_embedding(self, frame_image):
         # 提取每个帧的特征向量
         # 打开图像并进行预处理
@@ -68,3 +90,12 @@ class VideoModel:
             return self.get_frame_embedding_byte(image)
         else:
             return self.get_frame_embedding_byte(frame_image.to_image())
+
+    def get_frame_embedding_256(self, frame_image):
+        # 提取每个帧的特征向量
+        # 打开图像并进行预处理
+        if isinstance(frame_image, str):
+            image = Image.open(frame_image).convert("RGB")
+            return self.get_frame_embedding_byte_256(image)
+        else:
+            return self.get_frame_embedding_byte_256(frame_image.to_image())

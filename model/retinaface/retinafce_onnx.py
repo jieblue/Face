@@ -25,6 +25,7 @@ class Retinaface_Onnx:
             'CPUExecutionProvider',
         ]
         device_name = 'cuda:' + str(gpu_id)
+        # self.device = torch.device(device_name)
         self.device = torch.device("mps:0")
 
 
