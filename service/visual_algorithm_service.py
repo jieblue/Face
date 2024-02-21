@@ -15,6 +15,7 @@ from utils.img_util import cv_imread
 
 logger = log_util.get_logger(__name__)
 
+logger.info("Loading config")
 # 获取config信息
 conf = get_config()
 # 加载人脸模型 加载模型会耗时比较长
@@ -23,6 +24,9 @@ logger.info("Face model loaded successfully")
 
 video_model = VideoModel('./config/weights/ResNet2048_v224.onnx', gpu_id=0)
 logger.info("Video model loaded successfully")
+
+embedding_dim = conf["face_app"]["embedding_dim"]
+logger.info(f"embedding_dim is {embedding_dim}")
 
 
 def grouping_key_frame(key_frame_list: List[KeyFrame]):
@@ -258,6 +262,28 @@ def keyframe_similarity(frame_x, frame_y):
     return normalized_euclidean_distance(distance)
 
 
+# 人脸图片转为特征向量
+def turn_to_face_embedding(self, img, enhance=False, aligned=False,
+                           confidence=0.99):
+    if embedding_dim == 256:
+        logger.info("Turn to 256 embeddings")
+        return face_model.turn2embeddings_256(img, enhance, aligned, confidence)
+    else:
+        logger.info("Turn to 512 embeddings")
+        return face_model.turn2embeddings(img, enhance, aligned, confidence)
+
+
+def get_frame_embedding(self, frame_image):
+    if embedding_dim == 256:
+        logger.info("Get 256 frame embedding")
+        return video_model.get_frame_embedding_256(frame_image)
+    else:
+        logger.info("Get 512 frame embedding")
+        return video_model.get_frame_embedding(frame_image)
+
+
 def normalized_euclidean_distance(L2, dim=512):
+    if embedding_dim == 256:
+        dim = 256
     dim_sqrt = math.sqrt(dim)
     return 1 / (1 + L2 / dim_sqrt)

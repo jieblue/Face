@@ -26,14 +26,30 @@ logger.info(f"Elasticsearch client user: {elasticsearch_user}, password: {elasti
 face_app_conf = conf['face_app']
 
 main_avatar_v1_index = face_app_conf['main_avatar_collection']
+logger.info(f"Face app main_avatar_collection: {main_avatar_v1_index}")
 
 image_faces_v1_index = face_app_conf['image_face_collection']
+logger.info(f"Face app image_face_collection: {image_faces_v1_index}")
 
 content_faces_v1_index = face_app_conf['content_face_collection']
+logger.info(f"Face app content_face_collection: {content_faces_v1_index}")
 
 video_frames_v1_index = face_app_conf['video_frame_collection']
+logger.info(f"Face app video_frame_collection: {video_frames_v1_index}")
 
 content_frames_v1_index = face_app_conf['content_frame_collection']
+logger.info(f"Face app content_frame_collection: {content_frames_v1_index}")
+
+dim_embedding = face_app_conf['dim_embedding']
+logger.info(f"Face app dim_embedding: {dim_embedding}")
+
+if dim_embedding == 256:
+    main_avatar_v1_index = main_avatar_v1_index + "_256"
+    image_faces_v1_index = image_faces_v1_index + "_256"
+    content_faces_v1_index = content_faces_v1_index + "_256"
+    video_frames_v1_index = video_frames_v1_index + "_256"
+    content_frames_v1_index = content_frames_v1_index + "_256"
+    logger.info(f"Face app dim_embedding is 256, so index name is {main_avatar_v1_index}, {image_faces_v1_index}")
 
 similarity_search = "cosineSimilarity(params.query_vector, 'embedding') + 1000"
 
