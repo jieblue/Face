@@ -61,4 +61,5 @@ face_app:
   video_id_file_path: "/home/gpu6/video-face-project/need_upload_hdfs"
   max_image_size_mb: 2
   download_file: False
+  embedding_dim: 512
 video_root_path: "/Users/jackpan/JackPanDocuments/temporary/"
