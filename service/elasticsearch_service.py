@@ -19,7 +19,7 @@ elasticsearch_password = es_config['password']
 es_client = Elasticsearch(
     hosts=[{'host': elasticsearch_host, 'port': elasticsearch_port, 'scheme': "http"}],
     http_auth=(elasticsearch_user, elasticsearch_password),
-    timeout=60,
+    timeout=300,
 )
 logger.info(f"Elasticsearch client host: {elasticsearch_host}, port: {elasticsearch_port}")
 logger.info(f"Elasticsearch client user: {elasticsearch_user}, password: {elasticsearch_password}")
@@ -366,6 +366,9 @@ def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=Fal
                     }
                 }
             }
+        },
+        "collapse": {
+            "field": "object_id.raw"
         }
     }
     result = []
