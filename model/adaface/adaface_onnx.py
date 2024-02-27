@@ -23,8 +23,8 @@ class Adaface_Onnx:
         so.log_severity_level = 3
 
         # 加载 onnx模型到onnxruntime的推理
-        # self.session = ort.InferenceSession(path, so, providers=providers)
-        self.session = ort.InferenceSession(path, so)
+        self.session = ort.InferenceSession(path, so, providers=providers)
+        # self.session = ort.InferenceSession(path, so)
         # onnx获取输入名称
         self.input_name = self.session.get_inputs()[0].name
 

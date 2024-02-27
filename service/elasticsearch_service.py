@@ -41,7 +41,7 @@ content_frames_v1_index = face_app_conf['content_frame_collection']
 logger.info(f"Face app content_frame_collection: {content_frames_v1_index}")
 
 embedding_dim = face_app_conf['embedding_dim']
-logger.info(f"Face app dim_embedding: {embedding_dim}")
+logger.info(f"Face app embedding_dim: {embedding_dim}")
 
 if embedding_dim == 256:
     main_avatar_v1_index = main_avatar_v1_index + "_256"
