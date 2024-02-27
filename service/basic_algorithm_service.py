@@ -1,3 +1,4 @@
+import gc
 import math
 import os
 from typing import List
@@ -59,6 +60,8 @@ def extract_key_frame_list(video_file: VideoFile) -> List[KeyFrame]:
     #             end_pos = end_pos + 1
     # logger.info(f"Extracted {len(result)} key frames from {video_file.file_name}")
 
+    #gc.collect()释放frames占用的内存
+    gc.collect()
     return result
 
 
