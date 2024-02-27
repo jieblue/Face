@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify, Response
 from entity.file_entity import VideoFile, ImageFile
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
-from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service
+from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service, visual_algorithm_service
 from service.core_service import *
 from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index
 from utils import log_util
@@ -188,7 +188,7 @@ def determine_face():
 
         img = cv_imread(dir_path)
 
-        embedding = face_model.turn2embeddings(img, enhance=False, confidence=0.9)
+        embedding = visual_algorithm_service.turn_to_face_embedding(img, enhance=False, confidence=0.9)
         if len(embedding) == 0:
             result["face_found_in_image"] = False
             result['error_message'] = 'No face found'
@@ -275,7 +275,7 @@ def insert_main_avatar():
     # Get embedding
     avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
     face_score = face_model.tface.forward(avatar_align_face[0])
-    embedding = face_model.turn2embeddings(avatar_image, enhance=False, aligned=False, confidence=0.99)
+    embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=False, confidence=0.99)
     embedding = core_service.squeeze_faces(embedding)[0]
 
     # Prepare data for Elasticsearch
@@ -374,7 +374,7 @@ def update_main_avatar():
     # Get embedding
     avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
     face_score = face_model.tface.forward(avatar_align_face[0])
-    embedding = face_model.turn2embeddings(avatar_image, enhance=False, aligned=False, confidence=0.99)
+    embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=False, confidence=0.99)
     embedding = core_service.squeeze_faces(embedding)[0]
 
     body = {
@@ -743,7 +743,7 @@ def content_face_predict():
         image = cv_imread(dir_path)
 
         start = time.time()
-        search_vectors = face_model.turn2embeddings(image, enhance=False)
+        search_vectors = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)
 
         min_score = 1000 + 0.5
 

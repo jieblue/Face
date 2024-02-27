@@ -6,6 +6,7 @@ from elasticsearch.helpers import bulk
 from config.config import get_config
 from entity.milvus_entity import FaceKeyFrameEmbedding, MainFaceKeyFrameEmbedding, KeyFrameEmbedding
 from model.model_onnx import Face_Onnx
+from service import visual_algorithm_service
 from utils import log_util
 
 logger = log_util.get_logger(__name__)
@@ -196,7 +197,7 @@ def search_main_face(face_frame_embedding: FaceKeyFrameEmbedding) -> MainFaceKey
 
 
 def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
-    embedding = model.turn2embeddings(image, enhance=enhance)
+    embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)
     min_score = score + 1000
     body = {
         "min_score": min_score,
@@ -237,7 +238,7 @@ def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=Fal
 
 
 def search_content_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
-    embedding = model.turn2embeddings(image, enhance=enhance)
+    embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)
 
     min_score = score + 1000
     body = {
@@ -280,7 +281,7 @@ def search_content_face_image(model: Face_Onnx, index_name: str, image, enhance=
 
 
 def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
-    embedding = model.turn2embeddings(image, enhance=enhance)
+    embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)
 
     min_score = score + 1000
     body = {
@@ -346,7 +347,7 @@ def search_face_similarity(index_name: str, body):
 
 
 def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
-    embedding = model.turn2embeddings(image, enhance=enhance)
+    embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)
 
     min_score = score + 1000
 
