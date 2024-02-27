@@ -31,7 +31,7 @@ logger.info(f"embedding_dim is {embedding_dim}")
 
 def grouping_key_frame(key_frame_list: List[KeyFrame]):
     for key_frame in key_frame_list:
-        frame_embedding = video_model.get_frame_embedding(key_frame.frame_stream)
+        frame_embedding = get_frame_embedding(key_frame.frame_stream)
         logger.info(f"Extracted frame num {key_frame.frame_num} frames ")
         key_frame.embedding = frame_embedding
 
@@ -82,7 +82,7 @@ def translate_frame_embedding(key_frame_list: List[KeyFrame]) -> List[KeyFrameEm
     for frame_info in key_frame_list:
         frame_embedding = frame_info.embedding
         if frame_embedding is None:
-            frame_embedding = video_model.get_frame_embedding(frame_info.frame_stream)
+            frame_embedding = get_frame_embedding(frame_info.frame_stream)
             logger.info(f"Extracted {frame_info.frame_num} frames ")
         else:
             logger.info(f"Extracted {frame_info.frame_num} frames from cache")
@@ -107,10 +107,10 @@ def translate_face_embedding(face_frame_list: List[FaceKeyFrame]) -> List[FaceKe
         score = face_model.tface.forward(face_frame_info.face_frame)
         # TODO 人脸质量得分低于多少分的可以启动是否增强人脸
         # 转换向量
-        original_embedding = face_model.turn2embeddings(face_frame_info.face_frame,
-                                                        enhance=False,
-                                                        aligned=True,
-                                                        confidence=0.99)
+        original_embedding = turn_to_face_embedding(face_frame_info.face_frame,
+                                                    enhance=False,
+                                                    aligned=True,
+                                                    confidence=0.99)
         # 压缩向量
         face_frame_embedding = squeeze_faces(original_embedding)[0]
 
@@ -263,7 +263,7 @@ def keyframe_similarity(frame_x, frame_y):
 
 
 # 人脸图片转为特征向量
-def turn_to_face_embedding(self, img, enhance=False, aligned=False,
+def turn_to_face_embedding(img, enhance=False, aligned=False,
                            confidence=0.99):
     if embedding_dim == 256:
         logger.info("Turn to 256 embeddings")
@@ -273,7 +273,7 @@ def turn_to_face_embedding(self, img, enhance=False, aligned=False,
         return face_model.turn2embeddings(img, enhance, aligned, confidence)
 
 
-def get_frame_embedding(self, frame_image):
+def get_frame_embedding(frame_image):
     if embedding_dim == 256:
         logger.info("Get 256 frame embedding")
         return video_model.get_frame_embedding_256(frame_image)
