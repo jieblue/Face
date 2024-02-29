@@ -45,11 +45,11 @@ embedding_dim = face_app_conf['embedding_dim']
 logger.info(f"Face app embedding_dim: {embedding_dim}")
 
 if embedding_dim == 256:
-    main_avatar_v1_index = main_avatar_v1_index + "_256"
-    image_faces_v1_index = image_faces_v1_index + "_256"
-    content_faces_v1_index = content_faces_v1_index + "_256"
-    video_frames_v1_index = video_frames_v1_index + "_256"
-    content_frames_v1_index = content_frames_v1_index + "_256"
+    main_avatar_v1_index = main_avatar_v1_index + "_" + embedding_dim
+    image_faces_v1_index = image_faces_v1_index + "_" + embedding_dim
+    content_faces_v1_index = content_faces_v1_index + "_" + embedding_dim
+    video_frames_v1_index = video_frames_v1_index + "_" + embedding_dim
+    content_frames_v1_index = content_frames_v1_index + "_" + embedding_dim
     logger.info(f"Face app dim_embedding is 256, so index name is {main_avatar_v1_index}, {image_faces_v1_index}")
 
 similarity_search = "cosineSimilarity(params.query_vector, 'embedding') + 1000"
