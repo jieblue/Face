@@ -45,11 +45,11 @@ embedding_dim = face_app_conf['embedding_dim']
 logger.info(f"Face app embedding_dim: {embedding_dim}")
 
 if embedding_dim == 256:
-    main_avatar_v1_index = main_avatar_v1_index + "_" + embedding_dim
-    image_faces_v1_index = image_faces_v1_index + "_" + embedding_dim
-    content_faces_v1_index = content_faces_v1_index + "_" + embedding_dim
-    video_frames_v1_index = video_frames_v1_index + "_" + embedding_dim
-    content_frames_v1_index = content_frames_v1_index + "_" + embedding_dim
+    main_avatar_v1_index = main_avatar_v1_index + "_" + str(embedding_dim)
+    image_faces_v1_index = image_faces_v1_index + "_" + str(embedding_dim)
+    content_faces_v1_index = content_faces_v1_index + "_" + str(embedding_dim)
+    video_frames_v1_index = video_frames_v1_index + "_" + str(embedding_dim)
+    content_frames_v1_index = content_frames_v1_index + "_" + str(embedding_dim)
     logger.info(f"Face app dim_embedding is 256, so index name is {main_avatar_v1_index}, {image_faces_v1_index}")
 
 similarity_search = "cosineSimilarity(params.query_vector, 'embedding') + 1000"
@@ -346,8 +346,11 @@ def search_face_similarity(index_name: str, body):
     return [result], total
 
 
-def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
-    embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)
+def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10, embedding_arr=[]):
+    if len(embedding_arr) <= 0:
+        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)[0]
+    else:
+        embedding = embedding_arr
 
     min_score = score + 1000
 
@@ -363,13 +366,10 @@ def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=Fal
                 "script": {
                     "source": similarity_search,
                     "params": {
-                        "query_vector": embedding[0]
+                        "query_vector": embedding
                     }
                 }
             }
-        },
-        "collapse": {
-            "field": "object_id.raw"
         }
     }
     result = []
@@ -385,7 +385,8 @@ def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=Fal
             'hdfs_path': one['_source']['hdfs_path'],
             'score': current_score,
             'quality_score': one['_source']['quality_score'],
-            'recognition_state': one['_source']['recognition_state']
+            'recognition_state': one['_source']['recognition_state'],
+            "embedding": one['_source']['embedding']
         }
 
         result.append(tmp)
