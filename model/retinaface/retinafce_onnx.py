@@ -6,6 +6,7 @@ from utils.face_helper import *
 import torch.onnx
 import onnxruntime as ort
 from utils.img_util import down_image
+import platform
 
 
 # retinaface 的ONNX模型，用于人脸检测
@@ -24,9 +25,13 @@ class Retinaface_Onnx:
             }),
             'CPUExecutionProvider',
         ]
-        device_name = 'cuda:' + str(gpu_id)
-        self.device = torch.device(device_name)
-        # self.device = torch.device("mps:0")
+
+        if platform.system() == 'Darwin':
+            print('Use MAC GPU')
+            self.device = torch.device("mps:0")
+        else:
+            device_name = 'cuda:' + str(gpu_id)
+            self.device = torch.device(device_name)
 
 
         so = ort.SessionOptions()

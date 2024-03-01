@@ -1,5 +1,7 @@
 import onnxruntime as ort
 import numpy as np
+import platform
+
 
 
 # adaface 的 ONNX模型使用
@@ -23,8 +25,13 @@ class Adaface_Onnx:
         so.log_severity_level = 3
 
         # 加载 onnx模型到onnxruntime的推理
-        self.session = ort.InferenceSession(path, so, providers=providers)
-        # self.session = ort.InferenceSession(path, so)
+        # self.session = ort.InferenceSession(path, so, providers=providers)
+        if platform.system() == 'Darwin':
+            print('Use MAC GPU')
+            self.session = ort.InferenceSession(path, so)
+        else:
+            self.session = ort.InferenceSession(path, so, providers=providers)
+
         # onnx获取输入名称
         self.input_name = self.session.get_inputs()[0].name
 
