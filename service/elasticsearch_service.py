@@ -280,8 +280,12 @@ def search_content_face_image(model: Face_Onnx, index_name: str, image, enhance=
     return search_face_similarity(index_name, body)
 
 
-def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10):
-    embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)
+def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10, embedding_arr=[]):
+    if len(embedding_arr) <= 0:
+        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)[0]
+    else:
+        embedding = embedding_arr
+
 
     min_score = score + 1000
     body = {
@@ -310,7 +314,7 @@ def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, s
                 "script": {
                     "source": similarity_search,
                     "params": {
-                        "query_vector": embedding[0]
+                        "query_vector": embedding
                     }
                 }
             }

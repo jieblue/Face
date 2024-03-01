@@ -549,7 +549,9 @@ def face_predict():
         "code": 0,
         "msg": "success",
     }
-    file = request.files['file']  # Assuming the file input field is named 'file'
+    file = request.files['file']
+
+    # Assuming the file input field is named 'file'
     score = request.form.get('score')
     if score is None:
         score = 0.4
@@ -563,28 +565,40 @@ def face_predict():
     logger.info("page_num:" + str(page_num))
     logger.info("page_size:" + str(page_size))
 
+    embedding_arr = request.form.get('embedding')
+    if embedding_arr is not None and embedding_arr != "":
+        embedding_arr = json.loads(embedding_arr)
+    else:
+        logger.info("embedding_arr is None")
+        embedding_arr = []
+
     offset = (int(page_num) - 1) * int(page_size)
 
-    if file:
-        uuid_filename = generator.generate_unique_value()
-        logger.info("uuid_filename: " + uuid_filename)
+    image = None
+    dir_path = None
+    if file or embedding_arr is not None:
 
-        dir_path = face_predict_dir + '/' + uuid_filename + ".jpg"
-        file.save(dir_path)  # Replace with the path where you want to save the file
+        if len(embedding_arr) <= 0:
+            uuid_filename = generator.generate_unique_value()
+            logger.info("uuid_filename: " + uuid_filename)
 
-        image = cv_imread(dir_path)
+            dir_path = face_predict_dir + '/' + uuid_filename + ".jpg"
+            file.save(dir_path)  # Replace with the path where you want to save the file
+
+            image = cv_imread(dir_path)
 
         start = time.time()
 
         res, total = elasticsearch_service.search_face_image(face_model, image_faces_v1_index, image, enhance=False,
-                                                             score=float(score), start=offset, size=int(page_size))
+                                                             score=float(score), start=offset, size=int(page_size), embedding_arr=embedding_arr)
 
         logger.info('搜索耗时: ' + str(time.time() - start))
         logger.info(f"搜索结果: {res}")
         result['res'] = res
         result['total'] = total
-        video_service_v3.delete_video_file(dir_path)
-        logger.info('face_predict delete temp file: ' + dir_path)
+        if len(embedding_arr) <= 0:
+            video_service_v3.delete_video_file(dir_path)
+            logger.info('face_predict delete temp file: ' + dir_path)
     else:
         result["code"] = -1
         result["msg"] = "File uploaded Failure!"
@@ -597,7 +611,9 @@ def main_face_predict():
         "code": 0,
         "msg": "success",
     }
-    file = request.files['file']  # Assuming the file input field is named 'file'
+    file = None
+    if request.files['file'] is not None:
+        file = request.files['file']
     score = request.form.get('score')
     if score is None:
         score = 0.4
@@ -622,21 +638,26 @@ def main_face_predict():
 
     offset = (int(page_num) - 1) * int(page_size)
 
-    if file:
-        uuid_filename = generator.generate_unique_value()
-        logger.info("uuid_filename: " + uuid_filename)
+    image = None
+    dir_path = None
+    if file or embedding_arr is not None:
+        if len(embedding_arr) <= 0:
+            logger.info("embedding_arr: " + str(embedding_arr))
+            uuid_filename = generator.generate_unique_value()
+            logger.info("uuid_filename: " + uuid_filename)
 
-        dir_path = face_predict_dir + '/' + uuid_filename + ".jpg"
-        file.save(dir_path)  # Replace with the path where you want to save the file
+            dir_path = face_predict_dir + '/' + uuid_filename + ".jpg"
+            file.save(dir_path)  # Replace with the path where you want to save the file
 
-        image = cv_imread(dir_path)
+            image = cv_imread(dir_path)
 
         start = time.time()
 
         res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, image, enhance=False,
                                                            score=float(score), start=offset, size=int(page_size), embedding_arr=embedding_arr)
 
-        video_service_v3.delete_video_file(dir_path)
+        if len(embedding_arr) <= 0:
+            video_service_v3.delete_video_file(dir_path)
         logger.info('搜索耗时: ' + str(time.time() - start))
         logger.info(f"搜索结果: {res}")
         result['res'] = [res]
