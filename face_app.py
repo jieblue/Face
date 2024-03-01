@@ -1,5 +1,7 @@
 import hashlib
+import json
 import math
+import os
 import time
 import traceback
 
@@ -13,7 +15,6 @@ from service.core_service import *
 from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index
 from utils import log_util
 from utils.img_util import *
-
 
 class UniqueGenerator:
     def __init__(self):
@@ -47,6 +48,9 @@ key_faces_path = './keyframes_faces'
 
 hdfs_prefix = face_app_conf['hdfs_prefix']
 face_predict_dir = face_app_conf['face_predict_dir']
+if not os.path.exists(face_predict_dir):
+    logger.info(f"face_predict_dir {face_predict_dir} not exists, create it")
+    os.makedirs(face_predict_dir)
 generator = UniqueGenerator()
 
 app = Flask(__name__)
@@ -261,7 +265,7 @@ def insert_main_avatar():
     search_main_face_res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, avatar_image,
                                                                         enhance=False,
                                                                         score=float(score),
-                                                                        start=0, size=10)
+                                                                        start=0, size=10, embedding_arr=[])
     object_id = request.form.get('objectId')
     hdfs_path = request.form.get('hdfsPath')
 
@@ -603,6 +607,15 @@ def main_face_predict():
     page_size = request.form.get('pageSize')
     if page_size is None:
         page_size = 10
+
+    embedding_arr = request.form.get('embedding')
+    if embedding_arr is not None and embedding_arr != "":
+        embedding_arr = json.loads(embedding_arr)
+    else:
+        embedding_arr = []
+
+
+
     logger.info("score:" + str(score))
     logger.info("page_num:" + str(page_num))
     logger.info("page_size:" + str(page_size))
@@ -621,7 +634,7 @@ def main_face_predict():
         start = time.time()
 
         res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, image, enhance=False,
-                                                           score=float(score), start=offset, size=int(page_size))
+                                                           score=float(score), start=offset, size=int(page_size), embedding_arr=embedding_arr)
 
         video_service_v3.delete_video_file(dir_path)
         logger.info('搜索耗时: ' + str(time.time() - start))
