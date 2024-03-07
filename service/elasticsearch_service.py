@@ -57,11 +57,12 @@ similarity_search = "cosineSimilarity(params.query_vector, 'embedding') + 1000"
 
 def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKeyFrameEmbedding]):
     actions = []
+    index_name = get_image_face_index(file_data.saas_flag)
 
     for face_frame_embedding in face_frame_embedding_list:
 
         if file_data.tag == 'video' or file_data.tag == 'content':
-            main_face_election(face_frame_embedding)
+            main_face_election(face_frame_embedding, file_data.saas_flag)
         if float(face_frame_embedding.quantity_score) > 40:
             earliest_video_id = face_frame_embedding.earliest_video_id
             if file_data.tag == 'content' and earliest_video_id is not None:
@@ -69,7 +70,7 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
             if file_data.library_type is not None:
                 face_frame_embedding.key_id = f"{face_frame_embedding.key_id}_{file_data.library_type}"
             action = {
-                "_index": image_faces_v1_index,
+                "_index": index_name,
                 "_id": face_frame_embedding.key_id,
                 "_source": {
                     'key_id': face_frame_embedding.key_id,
@@ -90,7 +91,7 @@ def insert_face_embedding(file_data: Any, face_frame_embedding_list: List[FaceKe
     return res
 
 
-def main_face_election(face_frame_embedding_info):
+def main_face_election(face_frame_embedding_info, saas_flag=None):
     logger.info(f"Main face election for {face_frame_embedding_info.key_id}")
     main_face_info = search_main_face(face_frame_embedding_info)
 
@@ -103,7 +104,7 @@ def main_face_election(face_frame_embedding_info):
                                                        embedding=face_frame_embedding_info.embedding,
                                                        hdfs_path=face_frame_embedding_info.hdfs_path,
                                                        recognition_state="unidentification")
-            insert_result = insert_main_face(main_face_info)
+            insert_result = insert_main_face(main_face_info, saas_flag)
             logger.info(f"Insert main face {main_face_info.key_id} to Milvus. {insert_result}")
 
         face_frame_embedding_info.object_id = face_frame_embedding_info.key_id
@@ -121,7 +122,7 @@ def main_face_election(face_frame_embedding_info):
             main_face_info.hdfs_path = face_frame_embedding_info.hdfs_path
 
             if face_frame_embedding_info.tag == 'video':
-                update_result = update_main_face(main_face_info)
+                update_result = update_main_face(main_face_info, saas_flag)
                 logger.info(f"Update main face {main_face_info.key_id} to Milvus. {update_result}")
     else:
         logger.info(f"Main face {face_frame_embedding_info.key_id} quality score is lower than 40")
@@ -129,7 +130,7 @@ def main_face_election(face_frame_embedding_info):
         logger.info(f"Main face {face_frame_embedding_info.key_id} is not good face")
 
 
-def insert_main_face(main_face_info: MainFaceKeyFrameEmbedding):
+def insert_main_face(main_face_info: MainFaceKeyFrameEmbedding, saas_flag=None):
     body = {
         'object_id': main_face_info.object_id,
         'embedding': main_face_info.embedding,
@@ -137,12 +138,13 @@ def insert_main_face(main_face_info: MainFaceKeyFrameEmbedding):
         'quality_score': main_face_info.quantity_score,
         'recognition_state': main_face_info.recognition_state
     }
-    res = es_client.index(index=main_avatar_v1_index, id=main_face_info.key_id, body=body)
+    index_name = get_main_avatar_index(saas_flag)
+    res = es_client.index(index=index_name, id=main_face_info.key_id, body=body)
     logger.info(f"Insert main face {main_face_info.key_id} to Elasticsearch. {res}")
     return res
 
 
-def update_main_face(main_face_info: MainFaceKeyFrameEmbedding):
+def update_main_face(main_face_info: MainFaceKeyFrameEmbedding, saas_flag=None):
     body = {
         'doc': {
             'object_id': main_face_info.object_id,
@@ -152,7 +154,9 @@ def update_main_face(main_face_info: MainFaceKeyFrameEmbedding):
             'recognition_state': main_face_info.recognition_state
         }
     }
-    res = es_client.update(index=main_avatar_v1_index, id=main_face_info.key_id, body=body)
+    index_name = get_main_avatar_index(saas_flag)
+
+    res = es_client.update(index=index_name, id=main_face_info.key_id, body=body)
     logger.info(f"Update main face {main_face_info.key_id} in Elasticsearch. {res}")
     return res
 
@@ -424,11 +428,11 @@ def insert_frame_embedding(file_data: Any, key_frame_embedding_list: List[KeyFra
 
     index_name = None
     if file_data.tag == 'video':
-        index_name = video_frames_v1_index
         logger.info(f"Insert frame embedding for video {file_data.video_id}")
+        index_name = get_video_frame_index(file_data.saas_flag)
     elif file_data.tag == 'content' or file_data.tag == 'video-index':
-        index_name = video_frames_v1_index
         logger.info(f"Insert frame embedding for content {file_data.video_id}")
+        index_name = get_video_frame_index(file_data.saas_flag)
 
     if index_name is None:
         raise ValueError(f"Index is None, Invalid tag: {file_data.tag}")
@@ -499,3 +503,30 @@ def delete_document(index_name, doc_type, doc_id):
 def search(index_name, body):
     """Search documents."""
     return es_client.search(index=index_name, body=body)
+
+
+def get_main_avatar_index(saas_flag):
+    if saas_flag is not None and saas_flag != "":
+        logger.info(f"Get main_avatar_v1_index: {saas_flag + main_avatar_v1_index}")
+        return saas_flag + "_" + main_avatar_v1_index
+    else:
+        logger.info(f"No saas, Get main_avatar_v1_index: {main_avatar_v1_index}")
+        return main_avatar_v1_index
+
+
+def get_video_frame_index(saas_flag):
+    if saas_flag is not None and saas_flag != "":
+        logger.info(f"Get video_frames_v1_index: {saas_flag + video_frames_v1_index}")
+        return saas_flag + "_" + video_frames_v1_index
+    else:
+        logger.info(f"No saas, Get video_frames_v1_index: {video_frames_v1_index}")
+        return video_frames_v1_index
+
+
+def get_image_face_index(saas_flag):
+    if saas_flag is not None and saas_flag != "":
+        logger.info(f"Get image_faces_v1_index: {saas_flag + image_faces_v1_index}")
+        return saas_flag + "_" + image_faces_v1_index
+    else:
+        logger.info(f"No saas, Get image_faces_v1_index: {image_faces_v1_index}")
+        return image_faces_v1_index

@@ -17,8 +17,7 @@ logger = log_util.get_logger(__name__)
 
 
 def extract_key_frame_list(video_file: VideoFile) -> List[KeyFrame]:
-    content = av.datasets.curated(video_file.file_path)
-    with av.open(content) as container:
+    with av.open(video_file.file_path) as container:
 
         result = []
         # Signal that we only want to look at keyframes.

@@ -82,6 +82,7 @@ def main_face_list():
     page_size = request.form.get('pageSize', 10)
     recognition_state = request.form.get('recognitionState', 'unidentification')
     object_id = request.form.get('objectId')
+    saas_flag = request.form.get('office_code')
 
     logger.info(f"score: {score}")
     logger.info(f"page_num: {page_num}")
@@ -114,8 +115,8 @@ def main_face_list():
         "query": query,
         "_source": ["object_id", "hdfs_path", "quality_score", "recognition_state"]
     }
-
-    search_res = es_client.search(index=main_avatar_v1_index, body=body)
+    index_name = elasticsearch_service.get_main_avatar_index(saas_flag)
+    search_res = es_client.search(index=index_name, body=body)
 
     search_result = []
     for hit in search_res['hits']['hits']:
@@ -256,6 +257,8 @@ def insert_main_avatar():
         return jsonify(validate_result)
 
     score = request.form.get('score', 0.6)
+    saas_flag = request.form.get('office_code')
+
 
     # Validate image
     avatar_image = cv_imread(request.files['file'])
@@ -265,8 +268,9 @@ def insert_main_avatar():
         result["msg"] = validate_image_result["message"]
         return jsonify(result)
 
+    index_name = elasticsearch_service.get_main_avatar_index(saas_flag)
         # 检索主人像， 看是否存在相同的主头像
-    search_main_face_res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, avatar_image,
+    search_main_face_res = elasticsearch_service.search_main_face_image(face_model, index_name, avatar_image,
                                                                         enhance=False,
                                                                         score=float(score),
                                                                         start=0, size=10, embedding_arr=[])
@@ -298,7 +302,7 @@ def insert_main_avatar():
     }
 
     # Insert into Elasticsearch
-    res = es_client.index(index=main_avatar_v1_index, id=object_id, body=body)
+    res = es_client.index(index=index_name, id=object_id, body=body)
     logger.info(f"Insert main face {object_id} to Elasticsearch. {res}")
 
     result["objectId"] = object_id
@@ -347,9 +351,11 @@ def update_main_avatar():
     # Prepare data for Elasticsearch
     object_id = request.form.get('objectId')
     hdfs_path = request.form.get('hdfsPath')
+    saas_flag = request.form.get('office_code')
+    index_name = elasticsearch_service.get_main_avatar_index(saas_flag)
 
     # Search for the main avatar in Elasticsearch
-    res, total = elasticsearch_service.search_face_image(face_model, main_avatar_v1_index, avatar_image, enhance=False,
+    res, total = elasticsearch_service.search_face_image(face_model, index_name, avatar_image, enhance=False,
                                                          score=float(score),
                                                          start=0, size=10)
 
@@ -399,7 +405,7 @@ def update_main_avatar():
     }
 
     # Update in Elasticsearch
-    res = es_client.update(index=main_avatar_v1_index, id=object_id, body=body)
+    res = es_client.update(index=index_name, id=object_id, body=body)
     logger.info(f"Update main face {object_id} in Elasticsearch. {res}")
     result['total'] = total
     result["objectId"] = object_id
@@ -426,6 +432,8 @@ def update_main_avatar_object():
         recognition_state = 'identification'
 
     new_object_id = request.form.get('newObjectId')
+    saas_flag = request.form.get('office_code')
+    index_name = elasticsearch_service.get_main_avatar_index(saas_flag)
 
     if recognition_state != 'identification' and recognition_state != 'unidentification':
         result["code"] = -1
@@ -433,7 +441,7 @@ def update_main_avatar_object():
         return jsonify(result)
 
     # Search for the main avatar in Elasticsearch
-    search_res = es_client.get(index=main_avatar_v1_index, id=object_id)
+    search_res = es_client.get(index=index_name, id=object_id)
 
     if not search_res['found']:
         logger.info(f"object_id: {object_id} not found")
@@ -454,7 +462,7 @@ def update_main_avatar_object():
     }
 
     # Update in Elasticsearch
-    res = es_client.update(index=main_avatar_v1_index, id=object_id, body=body)
+    res = es_client.update(index=index_name, id=object_id, body=body)
     logger.info(f"Update main face {object_id} in Elasticsearch. {res}")
 
     result["objectId"] = object_id
@@ -474,7 +482,8 @@ def vectorization_v3() -> Response:
         file_name = json_data["fileName"]
         tag = json_data["tag"]
         file_name = video_id
-        video_file = VideoFile(file_name=file_name, file_path=video_path, video_id=video_id, tag=tag)
+        saas_flag = json_data.get("office_code")
+        video_file = VideoFile(file_name=file_name, file_path=video_path, video_id=video_id, tag=tag, saas_flag=saas_flag)
 
         key_frame_list, face_frame_embedding_list = video_service_v3.process_video_file(video_file)
         data = {
@@ -518,11 +527,11 @@ def image_vectorization_v3() -> Response:
         logger.info(f"Need to down load file_image_url: {file_image_url}")
         if file_image_url is not None and file_image_url != "":
             file_service.download_image_file(image_path, file_image_url, image_id)
-
         tag = json_data["tag"]
+        saas_flag = json_data.get("office_code")
         file_name = image_id
         image_file = ImageFile(file_name=file_name, file_path=image_path, video_id=image_id, tag=tag,
-                               library_type=library_type)
+                               library_type=library_type, saas_flag=saas_flag)
 
         key_frame_list, face_frame_embedding_list = video_service_v3.process_image_file(image_file)
         data = {
@@ -675,6 +684,7 @@ def content_face_predict():
     page_num = request.form.get('pageNum', 1)
     page_size = request.form.get('pageSize', 10)
     public_type = request.form.get('public_type')
+    saas_flag = request.form.get('saasFlag')
 
     query = {
         "bool": {
