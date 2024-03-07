@@ -10,13 +10,15 @@ from flask import Flask, request, jsonify, Response
 from entity.file_entity import VideoFile, ImageFile
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
-from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service, visual_algorithm_service
+from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service, \
+    visual_algorithm_service
 from service.core_service import *
 from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index
 from utils import log_util
 from utils.img_util import *
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+
 
 class UniqueGenerator:
     def __init__(self):
@@ -281,7 +283,8 @@ def insert_main_avatar():
     # Get embedding
     avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
     face_score = face_model.tface.forward(avatar_align_face[0])
-    embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=False, confidence=0.99)
+    embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=False,
+                                                                confidence=0.99)
     embedding = core_service.squeeze_faces(embedding)[0]
 
     # Prepare data for Elasticsearch
@@ -380,7 +383,8 @@ def update_main_avatar():
     # Get embedding
     avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
     face_score = face_model.tface.forward(avatar_align_face[0])
-    embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=False, confidence=0.99)
+    embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=False,
+                                                                confidence=0.99)
     embedding = core_service.squeeze_faces(embedding)[0]
 
     body = {
@@ -593,9 +597,11 @@ def face_predict():
         start = time.time()
 
         res, total = elasticsearch_service.search_face_image_with_date(image_faces_v1_index, image, enhance=False,
-                                                             score=float(score), start=offset, size=int(page_size),
-                                                             embedding_arr=embedding_arr, begin_time=begin_time,
-                                                             end_time=end_time)
+                                                                       score=float(score), start=offset,
+                                                                       size=int(page_size),
+                                                                       embedding_arr=embedding_arr,
+                                                                       begin_time=begin_time,
+                                                                       end_time=end_time)
 
         logger.info('face_predict search spend time: ' + str(time.time() - start))
         logger.info(f"face_predict search result: {res}")
@@ -617,29 +623,16 @@ def main_face_predict():
         "msg": "success",
     }
     file = request.files.get('file')
-    score = request.form.get('score')
-    if score is None:
-        score = 0.4
-    page_num = request.form.get('pageNum')
-    if page_num is None:
-        page_num = 1
-    page_size = request.form.get('pageSize')
-    if page_size is None:
-        page_size = 10
+    score = float(request.form.get('score', 0.4))
+    page_num = int(request.form.get('pageNum', 1))
+    page_size = int(request.form.get('pageSize', 10))
+    offset = (page_num - 1) * page_size
 
-    embedding_arr = request.form.get('embedding')
-    if embedding_arr is not None and embedding_arr != "":
-        embedding_arr = json.loads(embedding_arr)
-    else:
-        embedding_arr = []
-
-
+    embedding_arr = request.form.get('embedding', '[]')
 
     logger.info("score:" + str(score))
     logger.info("page_num:" + str(page_num))
     logger.info("page_size:" + str(page_size))
-
-    offset = (int(page_num) - 1) * int(page_size)
 
     image = None
     dir_path = None
@@ -657,12 +650,13 @@ def main_face_predict():
         start = time.time()
 
         res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, image, enhance=False,
-                                                           score=float(score), start=offset, size=int(page_size), embedding_arr=embedding_arr)
+                                                           score=float(score), start=offset, size=int(page_size),
+                                                           embedding_arr=embedding_arr)
 
         if len(embedding_arr) <= 0:
             video_service_v3.delete_video_file(dir_path)
-        logger.info('搜索耗时: ' + str(time.time() - start))
-        logger.info(f"搜索结果: {res}")
+        logger.info('main_face_predict search spend time : ' + str(time.time() - start))
+        logger.info(f"main_face_predict search result : {res}")
         result['res'] = [res]
     else:
         result["code"] = -1
@@ -701,6 +695,26 @@ def content_face_predict():
 
     # 存在none值的情况的请求值
     must_condition_list = []
+    begin_time = request.form.get('beginTime')
+    end_time = request.form.get('endTime')
+    if begin_time is None or begin_time == "":
+        now = datetime.now()
+        # Get the time three months ago
+        three_months_ago = now - relativedelta(months=3)
+        # Format the time strings
+        end_time = now.strftime('%Y-%m-%d %H:%M:%S')
+        begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
+        logger.info(f"Current time: {begin_time}")
+        logger.info(f"Three months ago: {end_time}")
+
+    must_condition_list.append({
+        "range": {
+            "created_at": {
+                "gte": begin_time,
+                "lte": end_time
+            }
+        }
+    })
     library_type = request.form.get('libraryType')
     category_id = request.form.get('category_id')
     column_id = request.form.get('column_id')
@@ -847,7 +861,6 @@ def content_video_predict():
     filter_site = request.form.get('filter_site')
     topic_arr = request.form.get('topic_arr')
 
-
     query = {
         "bool": {
             "must": [
@@ -861,14 +874,6 @@ def content_video_predict():
                         "del_flag": "1"
                     }
                 }
-                # {
-                #     "terms": {
-                #         "FIELD": [
-                #             "VALUE1",
-                #             "VALUE2"
-                #         ]
-                #     }
-                # }
             ],
         }
     }
@@ -887,8 +892,6 @@ def content_video_predict():
             }
         })
 
-
-
     query['bool']['must_not'] = must_not_arr
 
     # 存在none值的情况的请求值
@@ -898,6 +901,20 @@ def content_video_predict():
     column_id = request.form.get('column_id')
     create_user_id = request.form.get('create_user_id')
     site_id = request.form.get('site_id')
+
+    begin_time = request.form.get('beginTime')
+    end_time = request.form.get('endTime')
+    if begin_time is None or begin_time == "":
+        now = datetime.now()
+        # Get the time three months ago
+        three_months_ago = now - relativedelta(months=3)
+        # Format the time strings
+        end_time = now.strftime('%Y-%m-%d %H:%M:%S')
+        begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
+        logger.info(f"Current time: {begin_time}")
+        logger.info(f"Three months ago: {end_time}")
+
+    must_condition_list.append({"range": {"created_at": {"gte": begin_time, "lte": end_time}}})
 
     if library_type is not None and library_type != "":
 
@@ -1057,6 +1074,17 @@ def video_predict():
         page_size = 10
 
     offset = (int(page_num) - 1) * int(page_size)
+    begin_time = request.form.get('beginTime')
+    end_time = request.form.get('endTime')
+    if begin_time is None or begin_time == "":
+        now = datetime.now()
+        # Get the time three months ago
+        three_months_ago = now - relativedelta(months=3)
+        # Format the time strings
+        end_time = now.strftime('%Y-%m-%d %H:%M:%S')
+        begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
+        logger.info(f"Current time: {begin_time}")
+        logger.info(f"Three months ago: {end_time}")
 
     if file:
         uuid_filename = generator.generate_unique_value()
@@ -1069,16 +1097,50 @@ def video_predict():
         start = time.time()
         search_vectors = video_model.get_frame_embedding(dir_path)
 
+        query = {
+            "bool": {
+                "must": [
+                    {
+                        "match_phrase": {
+                            "tag": "video"
+                        }
+                    }
+                ],
+                "must_not": [
+                    {
+                        "match_phrase": {
+                            "del_flag": "1"
+                        }
+                    }
+                ],
+            }
+        }
+
+        must_condition_list = []
+        must_condition_list.append({
+            "match_phrase": {
+                "tag": "video"
+            }
+        })
+
+        must_condition_list.append({
+            "range": {
+                "created_at": {
+                    "gte": begin_time,
+                    "lte": end_time
+                }
+            }
+        })
+
+        if len(must_condition_list) > 0:
+            query['bool']['must'] = must_condition_list
+
         body = {
             "from": offset,
             "size": page_size,
             "query": {
                 "script_score": {
-                    "query": {
-                        "match_phrase": {
-                            "tag": "video"
-                        }
-                    },
+                    "query": query,
                     "script": {
                         "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
                         "params": {
