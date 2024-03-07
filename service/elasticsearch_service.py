@@ -280,50 +280,70 @@ def search_content_face_image(model: Face_Onnx, index_name: str, image, enhance=
     return search_face_similarity(index_name, body)
 
 
-def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10, embedding_arr=[]):
-    if len(embedding_arr) <= 0:
-        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)[0]
-    else:
-        embedding = embedding_arr
-
-
-    min_score = score + 1000
+def search_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10,
+                      embedding_arr=[]):
+    embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)[0] if len(
+        embedding_arr) == 0 else embedding_arr
     body = {
-        "min_score": min_score,
+        "min_score": score + 1000,
         "from": start,
         "size": size,
         "query": {
             "script_score": {
                 "query": {
                     "bool": {
-                        "must": [
-                            {
-                                "match_all": {}
-                            }
-
-                        ],
-                        "must_not": [
-                            {
-                                "match_phrase": {
-                                    "tag": "content"
-                                }
-                            }
-                        ]
+                        "must": [{"match_all": {}}],
+                        "must_not": [{"match_phrase": {"tag": "content"}}]
                     }
                 },
                 "script": {
                     "source": similarity_search,
-                    "params": {
-                        "query_vector": embedding
-                    }
+                    "params": {"query_vector": embedding}
                 }
             }
         },
-        "collapse": {
-            "field": "earliest_video_id.raw"
-        }
-
+        "collapse": {"field": "earliest_video_id.raw"}
     }
+    return search_face_similarity(index_name, body)
+
+
+def search_face_image_with_date(index_name: str, image, enhance=False, score=0.5, start=0, size=10,
+                                embedding_arr=[],
+                                begin_time="2023-11-01 00:00:00", end_time="2024-11-01 00:00:00"):
+    embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)[0] if len(
+        embedding_arr) == 0 else embedding_arr
+    must_condition = []
+    must_condition.append({
+        "range": {
+            "created_at": {
+                "gte": begin_time,
+                "lte": end_time
+            }
+        }
+    })
+    body = {
+        "min_score": score + 1000,
+        "from": start,
+        "size": size,
+        "query": {
+            "script_score": {
+                "query": {
+                    "bool": {
+                        "must": must_condition,
+                        "must_not": [{"match_phrase": {"tag": "content"}}]
+                    }
+                },
+                "script": {
+                    "source": similarity_search,
+                    "params": {"query_vector": embedding}
+                }
+            }
+        },
+        "collapse": {"field": "earliest_video_id.raw"}
+    }
+
+    logger.info(f"Search face image with date query: {body}")
+
     return search_face_similarity(index_name, body)
 
 
@@ -350,7 +370,8 @@ def search_face_similarity(index_name: str, body):
     return [result], total
 
 
-def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10, embedding_arr=[]):
+def search_main_face_image(model: Face_Onnx, index_name: str, image, enhance=False, score=0.5, start=0, size=10,
+                           embedding_arr=[]):
     if len(embedding_arr) <= 0:
         embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=enhance)[0]
     else:

@@ -15,6 +15,8 @@ from service.core_service import *
 from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index
 from utils import log_util
 from utils.img_util import *
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 class UniqueGenerator:
     def __init__(self):
@@ -549,30 +551,31 @@ def face_predict():
         "code": 0,
         "msg": "success",
     }
-    file = request.files['file']
+    file = request.files.get('file')
+    score = float(request.form.get('score', 0.4))
+    page_num = int(request.form.get('pageNum', 1))
+    page_size = int(request.form.get('pageSize', 10))
+    begin_time = request.form.get('beginTime')
+    end_time = request.form.get('endTime')
+    if begin_time is None or begin_time == "":
+        now = datetime.now()
+        # Get the time three months ago
+        three_months_ago = now - relativedelta(months=3)
+        # Format the time strings
+        end_time = now.strftime('%Y-%m-%d %H:%M:%S')
+        begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
+        logger.info(f"Current time: {begin_time}")
+        logger.info(f"Three months ago: {end_time}")
 
-    # Assuming the file input field is named 'file'
-    score = request.form.get('score')
-    if score is None:
-        score = 0.4
-    page_num = request.form.get('pageNum')
-    if page_num is None:
-        page_num = 1
-    page_size = request.form.get('pageSize')
-    if page_size is None:
-        page_size = 10
+    offset = (page_num - 1) * page_size
+
+    embedding_arr = json.loads(request.form.get('embedding', '[]'))
+
+    if file is None:
+        logger.info("File is None")
     logger.info("score:" + str(score))
     logger.info("page_num:" + str(page_num))
     logger.info("page_size:" + str(page_size))
-
-    embedding_arr = request.form.get('embedding')
-    if embedding_arr is not None and embedding_arr != "":
-        embedding_arr = json.loads(embedding_arr)
-    else:
-        logger.info("embedding_arr is None")
-        embedding_arr = []
-
-    offset = (int(page_num) - 1) * int(page_size)
 
     image = None
     dir_path = None
@@ -589,11 +592,13 @@ def face_predict():
 
         start = time.time()
 
-        res, total = elasticsearch_service.search_face_image(face_model, image_faces_v1_index, image, enhance=False,
-                                                             score=float(score), start=offset, size=int(page_size), embedding_arr=embedding_arr)
+        res, total = elasticsearch_service.search_face_image_with_date(image_faces_v1_index, image, enhance=False,
+                                                             score=float(score), start=offset, size=int(page_size),
+                                                             embedding_arr=embedding_arr, begin_time=begin_time,
+                                                             end_time=end_time)
 
-        logger.info('搜索耗时: ' + str(time.time() - start))
-        logger.info(f"搜索结果: {res}")
+        logger.info('face_predict search spend time: ' + str(time.time() - start))
+        logger.info(f"face_predict search result: {res}")
         result['res'] = res
         result['total'] = total
         if len(embedding_arr) <= 0:
@@ -611,9 +616,7 @@ def main_face_predict():
         "code": 0,
         "msg": "success",
     }
-    file = None
-    if request.files['file'] is not None:
-        file = request.files['file']
+    file = request.files.get('file')
     score = request.form.get('score')
     if score is None:
         score = 0.4
