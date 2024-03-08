@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify, Response
 
 from entity.file_entity import VideoFile, ImageFile
 from entity.interface_request_entity import MainFaceRequestEntity, MainFaceInsertEntity, FacePredictEntity, \
-    MainFacePredictEntity, ContentFacePredictEntity, ContentVideoPredictEntity
+    MainFacePredictEntity, ContentFacePredictEntity, ContentVideoPredictEntity, VideoPredictEntity
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
 from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service, \
@@ -582,7 +582,8 @@ def content_video_predict():
         embedding = visual_algorithm_service.get_frame_embedding(image)
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.video_frame_search(request_param.saas_flag, query)
-        total, construct_result = elasticsearch_result_converter.video_predict_result_converter(original_es_result)
+        total, construct_result = elasticsearch_result_converter.content_video_predict_result_converter(
+            original_es_result)
         result['res'] = construct_result
         result['total'] = total
         return jsonify(result)
@@ -593,133 +594,33 @@ def content_video_predict():
         return jsonify(result)
 
 
-
 @app.route('/api/ability/video_predict', methods=['POST'])
 def video_predict():
     result = {
         "code": 0,
         "msg": "success",
+        'total': 0
     }
-    file = request.files['file']  # Assuming the file input field is named 'file'
-    score = request.form.get('score')
-    if score is None:
-        score = 0.6
-    page_num = request.form.get('pageNum')
-    if page_num is None:
-        page_num = 1
-    page_size = request.form.get('pageSize')
-    if page_size is None:
-        page_size = 10
 
-    offset = (int(page_num) - 1) * int(page_size)
-    begin_time = request.form.get('beginTime')
-    end_time = request.form.get('endTime')
-    if begin_time is None or begin_time == "":
-        now = datetime.now()
-        # Get the time three months ago
-        three_months_ago = now - relativedelta(months=3)
-        # Format the time strings
-        end_time = now.strftime('%Y-%m-%d %H:%M:%S')
-        begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
-        logger.info(f"Current time: {begin_time}")
-        logger.info(f"Three months ago: {end_time}")
-
-    if file:
-        uuid_filename = generator.generate_unique_value()
-        print("uuid_filename")
-        print(uuid_filename)
-
-        dir_path = video_predict_dir + uuid_filename + ".jpg"
-        file.save(dir_path)  # Replace with the path where you want to save the file
-
-        start = time.time()
-        search_vectors = video_model.get_frame_embedding(dir_path)
-
-        query = {
-            "bool": {
-                "must": [
-                    {
-                        "match_phrase": {
-                            "tag": "video"
-                        }
-                    }
-                ],
-                "must_not": [
-                    {
-                        "match_phrase": {
-                            "del_flag": "1"
-                        }
-                    }
-                ],
-            }
-        }
-
-        must_condition_list = []
-        must_condition_list.append({
-            "match_phrase": {
-                "tag": "video"
-            }
-        })
-
-        must_condition_list.append({
-            "range": {
-                "created_at": {
-                    "gte": begin_time,
-                    "lte": end_time
-                }
-            }
-        })
-
-        if len(must_condition_list) > 0:
-            query['bool']['must'] = must_condition_list
-
-        body = {
-            "from": offset,
-            "size": page_size,
-            "query": {
-                "script_score": {
-                    "query": query,
-                    "script": {
-                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
-                        "params": {
-                            "query_vector": search_vectors
-                        }
-                    }
-                }
-            },
-            "collapse": {
-                "field": "earliest_video_id.raw"
-            }
-        }
-        search_result = []
-        frame_result = es_client.search(index=video_frames_v1_index, body=body)
-        search_res = frame_result['hits']['hits']
-        for single in search_res:
-            current_score = single['_score'] - 1000
-            if float(current_score) < 0.9:
-                logger.info(f"{single['_id']} document current_score: {current_score} < score: {score}")
-                continue
-            tmp = {
-                'id': single['_id'],
-                'score': current_score,
-                'hdfs_path': single['_source']['hdfs_path'],
-                'earliest_video_id': single['_source']['earliest_video_id']
-            }
-            search_result.append(tmp)
-
-        print('搜索耗时: ' + str(time.time() - start))
-        print("搜索结果: ")
-        print(search_result)
-        result['res'] = [search_result]
-        video_service_v3.delete_video_file(dir_path)
-        logger.info(f"video_predict 删除临时文件: {dir_path}")
-    else:
+    try:
+        # 接收输入参数并且执行验证
+        request_param = VideoPredictEntity(request)
+        request_param.validate()
+        # 转换成ESL查询
+        image = cv_imread(request_param.file)
+        embedding = visual_algorithm_service.get_frame_embedding(image)
+        query = request_param.to_esl_query(embedding)
+        original_es_result = elasticsearch_service.video_frame_search(request_param.saas_flag, query)
+        total, construct_result = elasticsearch_result_converter.video_predict_result_converter(
+            original_es_result)
+        result['res'] = construct_result
+        result['total'] = total
+        return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
         result["code"] = -1
-        result["msg"] = "File uploaded Failure!"
-
-    print('Result')
-    print(result)
-    return jsonify(result)
+        result["msg"] = str(e)
+        return jsonify(result)
 
 
 @app.route('/api/ability/delete_relevant_data', methods=['POST'])
