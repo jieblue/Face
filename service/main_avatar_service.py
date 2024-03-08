@@ -110,8 +110,11 @@ def validate_parameter(request):
     return result
 
 
-def insert_to_main_avatar():
-    """
-    Insert the avatar data into Milvus.
-    """
-    logger.info("Inserting avatar data into Milvus...")
+def validate_insert_result(original_es_result):
+    interior_result = original_es_result['hits']['hits']
+    if len(interior_result) > 0:
+        raise ValueError(f"主头像已存在， 编号ID: {interior_result[0]['_source']['object_id']} 识别状态: "
+                         f"{interior_result[0]['_source']['recognition_state']}")
+
+
+
