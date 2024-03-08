@@ -196,7 +196,51 @@ class FacePredictEntity:
         return query
 
 
+class MainFacePredictEntity:
 
+    def __init__(self, request):
+        self.file = request.files.get('file')
+        self.score = request.form.get("score", 0.6)
+        self.page_num = request.form.get("pageNum", 1)
+        self.page_size = request.form.get("pageSize", 10)
+        self.saas_flag = request.form.get('office_code')
+        self.offset = (int(self.page_num) - 1) * int(self.page_size)
 
+    def to_dict(self):
+        return {
+            "file": self.file,
+            "score": self.score,
+            "page_num": self.page_num,
+            "page_size": self.page_size,
+            "saas_flag": self.saas_flag
+        }
 
+    def validate(self):
+        logger.info(f"validate request {self.to_dict()}")
+        if not self.file:
+            raise ValueError("file is required")
 
+        if self.saas_flag is None:
+            logger.warn("office_code is None, saas is not started")
+
+    def to_esl_query(self, embedding):
+        similarity_search = "cosineSimilarity(params.query_vector, 'embedding') + 1000"
+        query = {
+            "min_score": float(self.score) + 1000,
+            "from": self.offset,
+            "size": self.page_size,
+            "query": {
+                "script_score": {
+                    "query": {
+                        "match_all": {}
+                    },
+                    "script": {
+                        "source": similarity_search,
+                        "params": {
+                            "query_vector": embedding
+                        }
+                    }
+                }
+            }
+        }
+        return query

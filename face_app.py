@@ -8,7 +8,8 @@ import traceback
 from flask import Flask, request, jsonify, Response
 
 from entity.file_entity import VideoFile, ImageFile
-from entity.interface_request_entity import MainFaceRequestEntity, MainFaceInsertEntity, FacePredictEntity
+from entity.interface_request_entity import MainFaceRequestEntity, MainFaceInsertEntity, FacePredictEntity, \
+    MainFacePredictEntity
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
 from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service, \
@@ -518,46 +519,24 @@ def main_face_predict():
         "code": 0,
         "msg": "success",
     }
-    file = request.files.get('file')
-    score = float(request.form.get('score', 0.4))
-    page_num = int(request.form.get('pageNum', 1))
-    page_size = int(request.form.get('pageSize', 10))
-    offset = (page_num - 1) * page_size
-
-    embedding_arr = json.loads(request.form.get('embedding', '[]'))
-
-    logger.info("score:" + str(score))
-    logger.info("page_num:" + str(page_num))
-    logger.info("page_size:" + str(page_size))
-
-    image = None
-    dir_path = None
-    if file or embedding_arr is not None:
-        if len(embedding_arr) <= 0:
-            logger.info("embedding_arr: " + str(embedding_arr))
-            uuid_filename = generator.generate_unique_value()
-            logger.info("uuid_filename: " + uuid_filename)
-
-            dir_path = face_predict_dir + '/' + uuid_filename + ".jpg"
-            file.save(dir_path)  # Replace with the path where you want to save the file
-
-            image = cv_imread(dir_path)
-
-        start = time.time()
-
-        res = elasticsearch_service.search_main_face_image(face_model, main_avatar_v1_index, image, enhance=False,
-                                                           score=float(score), start=offset, size=int(page_size),
-                                                           embedding_arr=embedding_arr)
-
-        if len(embedding_arr) <= 0:
-            video_service_v3.delete_video_file(dir_path)
-        logger.info('main_face_predict search spend time : ' + str(time.time() - start))
-        logger.info(f"main_face_predict search result : {res}")
-        result['res'] = [res]
-    else:
+    try:
+        # 接收输入参数并且执行验证
+        request_param = MainFacePredictEntity(request)
+        request_param.validate()
+        # 转换成ESL查询
+        image = cv_imread(request_param.file)
+        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
+        query = request_param.to_esl_query(embedding)
+        original_es_result = elasticsearch_service.main_avatar_search(request_param.saas_flag, query)
+        total, construct_result = elasticsearch_result_converter.main_avatar_result_converter(original_es_result)
+        result['res'] = construct_result
+        result['total'] = total
+        return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
         result["code"] = -1
-        result["msg"] = "File uploaded Failure!"
-    return jsonify(result)
+        result["msg"] = str(e)
+        return jsonify(result)
 
 
 video_predict_dir = '/tmp/video_predict_tmp'
@@ -566,6 +545,31 @@ video_predict_dir = '/tmp/video_predict_tmp'
 @app.route('/api/ability/content_face_predict', methods=['POST'])
 def content_face_predict():
     result = {"code": 0, "msg": "success", 'total': 0}
+
+    result = {
+        "code": 0,
+        "msg": "success",
+    }
+    try:
+        # 接收输入参数并且执行验证
+        request_param = MainFacePredictEntity(request)
+        request_param.validate()
+        # 转换成ESL查询
+        image = cv_imread(request_param.file)
+        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
+        query = request_param.to_esl_query(embedding)
+        original_es_result = elasticsearch_service.main_avatar_search(request_param.saas_flag, query)
+        total, construct_result = elasticsearch_result_converter.main_avatar_result_converter(original_es_result)
+        result['res'] = construct_result
+        result['total'] = total
+        return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
+        result["code"] = -1
+        result["msg"] = str(e)
+        return jsonify(result)
+
+
     file = request.files.get('file')  # Assuming the file input field is named 'file'
     score = request.form.get('score', 0.6)
     page_num = request.form.get('pageNum', 1)

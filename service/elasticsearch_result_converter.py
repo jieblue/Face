@@ -9,12 +9,15 @@ def main_avatar_result_converter(original_result):
     logger.info(f"main_avatar_result_converter search total {total}")
     search_result = []
     for hit in original_result['hits']['hits']:
+        current_score = hit['_score'] - 1000
         tmp = {
             'id': hit['_id'],
             'object_id': hit['_source']['object_id'],
             'hdfs_path': hit['_source']['hdfs_path'],
+            'score': current_score,
             'quality_score': str(hit['_source']['quality_score']),
             'recognition_state': hit['_source']['recognition_state'],
+            "embedding": hit['_source']['embedding']
         }
         search_result.append(tmp)
 
