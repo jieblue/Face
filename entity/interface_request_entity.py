@@ -1,4 +1,9 @@
 # Create a logger
+import json
+from datetime import datetime
+
+from dateutil.relativedelta import relativedelta
+
 from utils import log_util
 
 logger = log_util.get_logger(__name__)
@@ -110,3 +115,88 @@ class MainFaceInsertEntity:
             "recognition_state": "identification",
         }
         return query
+
+
+class FacePredictEntity:
+
+    def __init__(self, request):
+        self.file = request.files.get('file')
+        self.score = request.form.get("score", 0.6)
+        self.page_num = request.form.get("pageNum", 1)
+        self.page_size = request.form.get("pageSize", 10)
+        self.begin_time = request.form.get("beginTime")
+        self.end_time = request.form.get("endTime")
+        self.saas_flag = request.form.get('office_code')
+        self.embedding_arr = json.loads(request.form.get('embedding', '[]'))
+        self.offset = (int(self.page_num) - 1) * int(self.page_size)
+
+    def to_dict(self):
+        return {
+            "file": self.file,
+            "score": self.score,
+            "page_num": self.page_num,
+            "page_size": self.page_size,
+            "begin_time": self.begin_time,
+            "end_time": self.end_time,
+            "saas_flag": self.saas_flag,
+            "embedding_arr": self.embedding_arr
+        }
+
+    def validate(self):
+        logger.info(f"validate request {self.to_dict()}")
+        if not self.file and len(self.embedding_arr) == 0:
+            raise ValueError("file is required or embedding is required")
+
+        if self.begin_time is None or self.begin_time == "":
+            logger.info("beginTime is None, start use default value, past three months ago")
+            now = datetime.now()
+            # Get the time three months ago
+            three_months_ago = now - relativedelta(months=3)
+            # Format the time strings
+            self.end_time = now.strftime('%Y-%m-%d %H:%M:%S')
+            self.begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
+            logger.info(f"Current time: {self.begin_time}")
+            logger.info(f"Three months ago: {self.end_time}")
+
+        if self.saas_flag is None:
+            logger.warn("office_code is None, saas is not started")
+
+    def to_esl_query(self):
+        similarity_search = "cosineSimilarity(params.query_vector, 'embedding') + 1000"
+        must_condition = [{
+            "range": {
+                "created_at": {
+                    "gte": self.begin_time,
+                    "lte": self.end_time
+                }
+            }
+        }]
+        query = {
+            "min_score": float(self.score) + 1000,
+            "from": self.offset,
+            "size": self.page_size,
+            "query": {
+                "script_score": {
+                    "query": {
+                        "bool": {
+                            "must": must_condition,
+                            "must_not": [{"match_phrase": {"tag": "content"}}]
+                        }
+                    },
+                    "script": {
+                        "source": similarity_search,
+                        "params": {"query_vector": self.embedding_arr}
+                    }
+                }
+            },
+            "collapse": {"field": "earliest_video_id.raw"}
+        }
+
+        logger.info(f"Search face image with date query: {query}")
+        return query
+
+
+
+
+
+

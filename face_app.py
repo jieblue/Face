@@ -8,7 +8,7 @@ import traceback
 from flask import Flask, request, jsonify, Response
 
 from entity.file_entity import VideoFile, ImageFile
-from entity.interface_request_entity import MainFaceRequestEntity, MainFaceInsertEntity
+from entity.interface_request_entity import MainFaceRequestEntity, MainFaceInsertEntity, FacePredictEntity
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
 from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service, \
@@ -491,65 +491,25 @@ def face_predict():
         "code": 0,
         "msg": "success",
     }
-    file = request.files.get('file')
-    score = float(request.form.get('score', 0.4))
-    page_num = int(request.form.get('pageNum', 1))
-    page_size = int(request.form.get('pageSize', 10))
-    begin_time = request.form.get('beginTime')
-    end_time = request.form.get('endTime')
-    if begin_time is None or begin_time == "":
-        now = datetime.now()
-        # Get the time three months ago
-        three_months_ago = now - relativedelta(months=3)
-        # Format the time strings
-        end_time = now.strftime('%Y-%m-%d %H:%M:%S')
-        begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
-        logger.info(f"Current time: {begin_time}")
-        logger.info(f"Three months ago: {end_time}")
-
-    offset = (page_num - 1) * page_size
-
-    embedding_arr = json.loads(request.form.get('embedding', '[]'))
-
-    if file is None:
-        logger.info("File is None")
-    logger.info("score:" + str(score))
-    logger.info("page_num:" + str(page_num))
-    logger.info("page_size:" + str(page_size))
-
-    image = None
-    dir_path = None
-    if file or embedding_arr is not None:
-
-        if len(embedding_arr) <= 0:
-            uuid_filename = generator.generate_unique_value()
-            logger.info("uuid_filename: " + uuid_filename)
-
-            dir_path = face_predict_dir + '/' + uuid_filename + ".jpg"
-            file.save(dir_path)  # Replace with the path where you want to save the file
-
-            image = cv_imread(dir_path)
-
-        start = time.time()
-
-        res, total = elasticsearch_service.search_face_image_with_date(image_faces_v1_index, image, enhance=False,
-                                                                       score=float(score), start=offset,
-                                                                       size=int(page_size),
-                                                                       embedding_arr=embedding_arr,
-                                                                       begin_time=begin_time,
-                                                                       end_time=end_time)
-
-        logger.info('face_predict search spend time: ' + str(time.time() - start))
-        logger.info(f"face_predict search result: {res}")
-        result['res'] = res
+    try:
+        # 接收输入参数并且执行验证
+        request_param = FacePredictEntity(request)
+        request_param.validate()
+        # 转换成ESL查询
+        if request_param.file is not None:
+            image = cv_imread(request_param.file)
+            request_param.embedding_arr = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
+        query = request_param.to_esl_query()
+        original_es_result = elasticsearch_service.image_faces_search(request_param.saas_flag, query)
+        total, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
+        result['res'] = construct_result
         result['total'] = total
-        if len(embedding_arr) <= 0:
-            video_service_v3.delete_video_file(dir_path)
-            logger.info('face_predict delete temp file: ' + dir_path)
-    else:
+        return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
         result["code"] = -1
-        result["msg"] = "File uploaded Failure!"
-    return jsonify(result)
+        result["msg"] = str(e)
+        return jsonify(result)
 
 
 @app.route('/api/ability/main_face_predict', methods=['POST'])

@@ -551,6 +551,7 @@ def main_avatar_search(saas_flag, query):
         raise ValueError(f"Index {index_name} does not exist")
     return es_client.search(index=index_name, body=query)
 
+
 def main_avatar_insert(saas_flag, id, body):
     """
     This function is used to insert a main avatar into the Elasticsearch index.
@@ -568,4 +569,11 @@ def main_avatar_insert(saas_flag, id, body):
     index_name = get_main_avatar_index(saas_flag)
     if not es_client.indices.exists(index=index_name):
         raise ValueError(f"Index {index_name} does not exist")
-    return es_client.index(index=index_name, id=id,  body=body)
+    return es_client.index(index=index_name, id=id, body=body)
+
+
+def image_faces_search(saas_flag, query):
+    index_name = get_image_face_index(saas_flag)
+    if not es_client.indices.exists(index=index_name):
+        raise ValueError(f"Index {index_name} does not exist")
+    return es_client.search(index=index_name, body=query)
