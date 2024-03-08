@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify, Response
 
 from entity.file_entity import VideoFile, ImageFile
 from entity.interface_request_entity import MainFaceRequestEntity, MainFaceInsertEntity, FacePredictEntity, \
-    MainFacePredictEntity, ContentFacePredictEntity
+    MainFacePredictEntity, ContentFacePredictEntity, ContentVideoPredictEntity
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
 from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service, \
@@ -572,214 +572,26 @@ def content_face_predict():
 @app.route('/api/ability/content_video_predict', methods=['POST'])
 def content_video_predict():
     result = {"code": 0, "msg": "success", 'total': 0}
-    file = request.files.get('file')  # Assuming the file input field is named 'file'
-    score = request.form.get('score', 0.6)
-    page_num = request.form.get('pageNum', 1)
-    page_size = request.form.get('pageSize', 10)
-    public_type = request.form.get('public_type')
-    filter_site = request.form.get('filter_site')
-    topic_arr = request.form.get('topic_arr')
-    saas_flag = request.form.get('office_code')
 
-    query = {
-        "bool": {
-            "must": [
-                {
-                    "match_all": {}
-                }
-            ],
-            "must_not": [
-                {
-                    "match_phrase": {
-                        "del_flag": "1"
-                    }
-                }
-            ],
-        }
-    }
-
-    must_not_arr = [{
-        "match_phrase": {
-            "del_flag": "1"
-        }
-    }]
-
-    if filter_site is not None and filter_site != "":
-        site_id_arr = filter_site.split(",")
-        must_not_arr.append({
-            "terms": {
-                "public_site_id": site_id_arr
-            }
-        })
-
-    query['bool']['must_not'] = must_not_arr
-
-    # 存在none值的情况的请求值
-    must_condition_list = []
-    library_type = request.form.get('libraryType')
-    category_id = request.form.get('category_id')
-    column_id = request.form.get('column_id')
-    create_user_id = request.form.get('create_user_id')
-    site_id = request.form.get('site_id')
-
-    # begin_time = request.form.get('beginTime')
-    # end_time = request.form.get('endTime')
-    # if begin_time is None or begin_time == "":
-    #     now = datetime.now()
-    #     # Get the time three months ago
-    #     three_months_ago = now - relativedelta(months=3)
-    #     # Format the time strings
-    #     end_time = now.strftime('%Y-%m-%d %H:%M:%S')
-    #     begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
-    #     logger.info(f"Current time: {begin_time}")
-    #     logger.info(f"Three months ago: {end_time}")
-    #
-    # must_condition_list.append({"range": {"created_at": {"gte": begin_time, "lte": end_time}}})
-
-    if library_type is not None and library_type != "":
-
-        if library_type == "video":
-            must_condition_list.append({
-                "match_phrase": {
-                    "tag": "video"
-                }
-            })
-
-        if library_type == "public":
-            must_condition_list.append({
-                "match_phrase": {
-                    "from_source": "public"
-                }
-            })
-
-            if public_type is not None and public_type != "":
-                must_condition_list.append({
-                    "match_phrase": {
-                        "public_type": public_type
-                    }
-                })
-            if topic_arr is not None and topic_arr != "":
-                must_condition_list.append({
-                    "exists": {
-                        "field": "public_topic_arr"
-                    }
-                })
-        else:
-            must_condition_list.append({
-                "match_phrase": {
-                    "from_source": library_type
-                }
-            })
-
-        if category_id is not None and category_id != "":
-            category_id_arr = category_id.split(",")
-            must_condition_list.append({
-                "term": {
-                    library_type + "_category_id": category_id_arr
-                }
-            })
-
-        if column_id is not None and column_id != "":
-            column_id_arr = column_id.split(",")
-            must_condition_list.append({
-                "term": {
-                    library_type + "_column_id": column_id_arr
-                }
-            })
-
-        if create_user_id is not None and create_user_id != "":
-            create_user_id_arr = create_user_id.split(",")
-            must_condition_list.append({
-                "term": {
-                    library_type + "_create_user_id": create_user_id_arr
-                }
-            })
-
-        if site_id is not None and site_id != "":
-            site_id_arr = site_id.split(",")
-            must_condition_list.append({
-                "term": {
-                    library_type + "_site_id": site_id_arr
-                }
-            })
-
-    if len(must_condition_list) > 0:
-        query['bool']['must'] = must_condition_list
-
-    logger.info(f"content_video_predict query: {query}")
-
-    offset = (int(page_num) - 1) * int(page_size)
-
-    if file:
-        uuid_filename = generator.generate_unique_value()
-        dir_path = video_predict_dir + uuid_filename + ".jpg"
-        file.save(dir_path)  # Replace with the path where you want to save the file
-
-        start = time.time()
-        search_vectors = video_model.get_frame_embedding(dir_path)
-
-        min_score = 1000 + 0.9
-
-        body = {
-            "min_score": min_score,
-            "from": offset,
-            "size": page_size,
-            "query": {
-                "script_score": {
-                    "query": query,
-                    "script": {
-                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
-                        "params": {
-                            "query_vector": search_vectors
-                        }
-                    }
-                }
-            },
-            "_source": ["key_id", "hdfs_path", "earliest_video_id", "tag", "from_source", "public_topic_arr"],
-            "collapse": {
-                "field": "earliest_video_id.raw"
-            }
-        }
-        search_result = []
-        index_name = elasticsearch_service.get_video_frame_index(saas_flag)
-        # Determine the index_name whether exist
-        if not es_client.indices.exists(index=index_name):
-            result["code"] = -1
-            result["msg"] = f"Index {index_name} not exists"
-            return jsonify(result)
-        frame_result = es_client.search(index=index_name, body=body)
-        search_res = frame_result['hits']['hits']
-        total = frame_result['hits']['total']['value']
-        for single in search_res:
-            earliest_video_id = ""
-            if single['_source']['earliest_video_id'] is not None:
-                earliest_video_id = str(single['_source']['earliest_video_id']).split("_")[0]
-            current_score = single['_score'] - 1000
-            tmp = {
-                'id': single['_id'],
-                'score': current_score,
-                'hdfs_path': single['_source']['hdfs_path'],
-                'earliest_video_id': earliest_video_id,
-                'tag': single['_source']['tag'],
-                'from_source': single['_source']['from_source']
-            }
-
-            if "public_topic_arr" in single['_source']:
-                tmp['public_topic_arr'] = single['_source']['public_topic_arr']
-
-            search_result.append(tmp)
-
-        logger.info('搜索耗时: ' + str(time.time() - start))
-        logger.info(f"搜索结果: {search_result}")
-        result['res'] = [search_result]
+    try:
+        # 接收输入参数并且执行验证
+        request_param = ContentVideoPredictEntity(request)
+        request_param.validate()
+        # 转换成ESL查询
+        image = cv_imread(request_param.file)
+        embedding = visual_algorithm_service.get_frame_embedding(image)
+        query = request_param.to_esl_query(embedding)
+        original_es_result = elasticsearch_service.video_frame_search(request_param.saas_flag, query)
+        total, construct_result = elasticsearch_result_converter.video_predict_result_converter(original_es_result)
+        result['res'] = construct_result
         result['total'] = total
-        video_service_v3.delete_video_file(dir_path)
-        logger.info(f"content_video_predict 删除临时文件: {dir_path}")
-    else:
+        return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
         result["code"] = -1
-        result["msg"] = "File uploaded Failure!"
+        result["msg"] = str(e)
+        return jsonify(result)
 
-    return jsonify(result)
 
 
 @app.route('/api/ability/video_predict', methods=['POST'])

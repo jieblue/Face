@@ -46,3 +46,31 @@ def face_predict_result_converter(original_result):
 
         result.append(tmp)
     return total, [result]
+
+
+def video_predict_result_converter(original_result):
+    logger.info(f"video_predict_result_converter search spend time {original_result['took']} ms")
+    total = original_result['hits']['total']['value']
+    logger.info(f"video_predict_result_converter search total {total}")
+    search_res = original_result['hits']['hits']
+    result = []
+    for one in search_res:
+        earliest_video_id = ""
+        if one['_source']['earliest_video_id'] is not None:
+            earliest_video_id = str(one['_source']['earliest_video_id']).split("_")[0]
+        current_score = one['_score'] - 1000
+        logger.info(f"Search single result: {one} and score is {current_score}")
+        tmp = {
+            'id': one['_id'],
+            'hdfs_path': one['_source']['hdfs_path'],
+            'score': current_score,
+            'earliest_video_id': earliest_video_id,
+            'tag': one['_source']['tag'],
+            'from_source': one['_source']['from_source']
+        }
+
+        if "public_topic_arr" in one['_source']:
+            tmp['public_topic_arr'] = one['_source']['public_topic_arr']
+
+        result.append(tmp)
+    return total, [result]

@@ -577,3 +577,10 @@ def image_faces_search(saas_flag, query):
     if not es_client.indices.exists(index=index_name):
         raise ValueError(f"Index {index_name} does not exist")
     return es_client.search(index=index_name, body=query)
+
+
+def video_frame_search(saas_flag, query):
+    index_name = get_video_frame_index(saas_flag)
+    if not es_client.indices.exists(index=index_name):
+        raise ValueError(f"Index {index_name} does not exist")
+    return es_client.search(index=index_name, body=query)
