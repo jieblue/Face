@@ -259,7 +259,6 @@ def insert_main_avatar():
     score = request.form.get('score', 0.6)
     saas_flag = request.form.get('office_code')
 
-
     # Validate image
     avatar_image = cv_imread(request.files['file'])
     validate_image_result = main_avatar_service.validate_image(avatar_image, face_model)
@@ -269,7 +268,7 @@ def insert_main_avatar():
         return jsonify(result)
 
     index_name = elasticsearch_service.get_main_avatar_index(saas_flag)
-        # 检索主人像， 看是否存在相同的主头像
+    # 检索主人像， 看是否存在相同的主头像
     search_main_face_res = elasticsearch_service.search_main_face_image(face_model, index_name, avatar_image,
                                                                         enhance=False,
                                                                         score=float(score),
@@ -483,7 +482,8 @@ def vectorization_v3() -> Response:
         tag = json_data["tag"]
         file_name = video_id
         saas_flag = json_data.get("office_code")
-        video_file = VideoFile(file_name=file_name, file_path=video_path, video_id=video_id, tag=tag, saas_flag=saas_flag)
+        video_file = VideoFile(file_name=file_name, file_path=video_path, video_id=video_id, tag=tag,
+                               saas_flag=saas_flag)
 
         key_frame_list, face_frame_embedding_list = video_service_v3.process_video_file(video_file)
         data = {
@@ -637,7 +637,7 @@ def main_face_predict():
     page_size = int(request.form.get('pageSize', 10))
     offset = (page_num - 1) * page_size
 
-    embedding_arr = request.form.get('embedding', '[]')
+    embedding_arr = json.loads(request.form.get('embedding', '[]'))
 
     logger.info("score:" + str(score))
     logger.info("page_num:" + str(page_num))
@@ -684,7 +684,7 @@ def content_face_predict():
     page_num = request.form.get('pageNum', 1)
     page_size = request.form.get('pageSize', 10)
     public_type = request.form.get('public_type')
-    saas_flag = request.form.get('saasFlag')
+    saas_flag = request.form.get('office_code')
 
     query = {
         "bool": {
@@ -705,26 +705,26 @@ def content_face_predict():
 
     # 存在none值的情况的请求值
     must_condition_list = []
-    begin_time = request.form.get('beginTime')
-    end_time = request.form.get('endTime')
-    if begin_time is None or begin_time == "":
-        now = datetime.now()
-        # Get the time three months ago
-        three_months_ago = now - relativedelta(months=3)
-        # Format the time strings
-        end_time = now.strftime('%Y-%m-%d %H:%M:%S')
-        begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
-        logger.info(f"Current time: {begin_time}")
-        logger.info(f"Three months ago: {end_time}")
-
-    must_condition_list.append({
-        "range": {
-            "created_at": {
-                "gte": begin_time,
-                "lte": end_time
-            }
-        }
-    })
+    # begin_time = request.form.get('beginTime')
+    # end_time = request.form.get('endTime')
+    # if begin_time is None or begin_time == "":
+    #     now = datetime.now()
+    #     # Get the time three months ago
+    #     three_months_ago = now - relativedelta(months=3)
+    #     # Format the time strings
+    #     end_time = now.strftime('%Y-%m-%d %H:%M:%S')
+    #     begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
+    #     logger.info(f"Current time: {begin_time}")
+    #     logger.info(f"Three months ago: {end_time}")
+    #
+    # must_condition_list.append({
+    #     "range": {
+    #         "created_at": {
+    #             "gte": begin_time,
+    #             "lte": end_time
+    #         }
+    #     }
+    # })
     library_type = request.form.get('libraryType')
     category_id = request.form.get('category_id')
     column_id = request.form.get('column_id')
@@ -828,7 +828,13 @@ def content_face_predict():
             }
         }
         search_result = []
-        search_res = es_client.search(index=image_faces_v1_index, body=body)
+        index_name = elasticsearch_service.get_image_face_index(saas_flag)
+        # Determine the index_name whether exist
+        if not es_client.indices.exists(index=index_name):
+            result["code"] = -1
+            result["msg"] = f"Index {index_name} not exists"
+            return jsonify(result)
+        search_res = es_client.search(index=index_name, body=body)
         total = search_res['hits']['total']['value']
         search_res = search_res['hits']['hits']
         for one in search_res:
@@ -870,6 +876,8 @@ def content_video_predict():
     public_type = request.form.get('public_type')
     filter_site = request.form.get('filter_site')
     topic_arr = request.form.get('topic_arr')
+    saas_flag = request.form.get('office_code')
+
 
     query = {
         "bool": {
@@ -912,19 +920,19 @@ def content_video_predict():
     create_user_id = request.form.get('create_user_id')
     site_id = request.form.get('site_id')
 
-    begin_time = request.form.get('beginTime')
-    end_time = request.form.get('endTime')
-    if begin_time is None or begin_time == "":
-        now = datetime.now()
-        # Get the time three months ago
-        three_months_ago = now - relativedelta(months=3)
-        # Format the time strings
-        end_time = now.strftime('%Y-%m-%d %H:%M:%S')
-        begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
-        logger.info(f"Current time: {begin_time}")
-        logger.info(f"Three months ago: {end_time}")
-
-    must_condition_list.append({"range": {"created_at": {"gte": begin_time, "lte": end_time}}})
+    # begin_time = request.form.get('beginTime')
+    # end_time = request.form.get('endTime')
+    # if begin_time is None or begin_time == "":
+    #     now = datetime.now()
+    #     # Get the time three months ago
+    #     three_months_ago = now - relativedelta(months=3)
+    #     # Format the time strings
+    #     end_time = now.strftime('%Y-%m-%d %H:%M:%S')
+    #     begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
+    #     logger.info(f"Current time: {begin_time}")
+    #     logger.info(f"Three months ago: {end_time}")
+    #
+    # must_condition_list.append({"range": {"created_at": {"gte": begin_time, "lte": end_time}}})
 
     if library_type is not None and library_type != "":
 
@@ -1031,7 +1039,13 @@ def content_video_predict():
             }
         }
         search_result = []
-        frame_result = es_client.search(index=video_frames_v1_index, body=body)
+        index_name = elasticsearch_service.get_video_frame_index(saas_flag)
+        # Determine the index_name whether exist
+        if not es_client.indices.exists(index=index_name):
+            result["code"] = -1
+            result["msg"] = f"Index {index_name} not exists"
+            return jsonify(result)
+        frame_result = es_client.search(index=index_name, body=body)
         search_res = frame_result['hits']['hits']
         total = frame_result['hits']['total']['value']
         for single in search_res:
@@ -1048,7 +1062,7 @@ def content_video_predict():
                 'from_source': single['_source']['from_source']
             }
 
-            if topic_arr is not None and topic_arr != "":
+            if "public_topic_arr" in single['_source']:
                 tmp['public_topic_arr'] = single['_source']['public_topic_arr']
 
             search_result.append(tmp)
