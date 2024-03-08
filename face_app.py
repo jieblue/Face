@@ -8,10 +8,11 @@ import traceback
 from flask import Flask, request, jsonify, Response
 
 from entity.file_entity import VideoFile, ImageFile
+from entity.interface_request_entity import MainFaceRequestEntity, MainFaceInsertEntity
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
 from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service, \
-    visual_algorithm_service
+    visual_algorithm_service, elasticsearch_result_converter
 from service.core_service import *
 from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index
 from utils import log_util
@@ -60,79 +61,31 @@ generator = UniqueGenerator()
 app = Flask(__name__)
 
 
-@app.route('/api/ability/face_vectorization', methods=['POST'])
-def face_vectorization():
-    result = {
-        "code": -1,
-        "msg": "This api interface is deprecated, please use /api/ability/v3/face_vectorization",
-    }
-
-    return jsonify(result)
-
-
 @app.route('/api/ability/main_face_list', methods=['POST'])
 def main_face_list():
     result = {
         "code": 0,
         "msg": "success",
     }
-    start = time.time()
-    score = request.form.get('score', 0.6)
-    page_num = request.form.get('pageNum', 1)
-    page_size = request.form.get('pageSize', 10)
-    recognition_state = request.form.get('recognitionState', 'unidentification')
-    object_id = request.form.get('objectId')
-    saas_flag = request.form.get('office_code')
 
-    logger.info(f"score: {score}")
-    logger.info(f"page_num: {page_num}")
-    logger.info(f"page_size: {page_size}")
-    logger.info(f"recognition_state: {recognition_state}")
-    logger.info(f"object_id: {object_id}")
+    try:
+        # 接收输入参数并且执行验证
+        request_param = MainFaceRequestEntity(request)
+        request_param.validate()
+        # 转换成ESL查询
+        query = request_param.to_esl_query()
+        original_es_result = elasticsearch_service.main_avatar_search(request_param.saas_flag, query)
+        total, construct_result = elasticsearch_result_converter.main_avatar_result_converter(original_es_result)
+        result['res'] = construct_result
+        result['total'] = total
 
-    offset = (int(page_num) - 1) * int(page_size)
+        return jsonify(result)
 
-    must_condition_list = [{
-        "term": {
-            "recognition_state": recognition_state
-        }
-    }]
-
-    if object_id is not None and object_id != "":
-        must_condition_list.append({
-            "term": {
-                "object_id": object_id
-            }
-        })
-    query = {
-        "bool": {
-        }
-    }
-    query['bool']['must'] = must_condition_list
-    body = {
-        "from": offset,
-        "size": page_size,
-        "query": query,
-        "_source": ["object_id", "hdfs_path", "quality_score", "recognition_state"]
-    }
-    index_name = elasticsearch_service.get_main_avatar_index(saas_flag)
-    search_res = es_client.search(index=index_name, body=body)
-
-    search_result = []
-    for hit in search_res['hits']['hits']:
-        tmp = {
-            'id': hit['_id'],
-            'object_id': hit['_source']['object_id'],
-            'hdfs_path': hit['_source']['hdfs_path'],
-            'quality_score': str(hit['_source']['quality_score']),
-            'recognition_state': hit['_source']['recognition_state'],
-        }
-        search_result.append(tmp)
-
-    logger.info(f'搜索耗时: {str(time.time() - start)}')
-    logger.info(f"搜索结果: {search_res}")
-    result['res'] = search_result
-    return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
+        result["code"] = -1
+        result["msg"] = str(e)
+        return jsonify(result)
 
 
 @app.route('/api/ability/face_quality', methods=['POST'])
@@ -251,63 +204,37 @@ def insert_main_avatar():
         "code": 0,
         "msg": "success",
     }
-    # Validate parameters
-    validate_result = main_avatar_service.validate_parameter(request)
-    if validate_result["code"] < 0:
-        return jsonify(validate_result)
 
-    score = request.form.get('score', 0.6)
-    saas_flag = request.form.get('office_code')
+    try:
+        # 接收输入参数并且执行验证
+        request_param = MainFaceInsertEntity(request)
+        request_param.validate()
+        avatar_image = cv_imread(request_param.file)
+        embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False)[0]
+        # 转换成ESL查询
+        exist_query = request_param.determine_face_exist_query(embedding)
+        original_es_result = elasticsearch_service.main_avatar_search(request_param.saas_flag, exist_query)
+        main_avatar_service.validate_insert_result(original_es_result)
+        # Get embedding
+        avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
+        face_score = face_model.tface.forward(avatar_align_face[0])
+        insert_embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=False,
+                                                                           confidence=0.99)[0]
 
-    # Validate image
-    avatar_image = cv_imread(request.files['file'])
-    validate_image_result = main_avatar_service.validate_image(avatar_image, face_model)
-    if not validate_image_result["validate"]:
-        result["code"] = -1
-        result["msg"] = validate_image_result["message"]
+        insert_query = request_param.insert_query(insert_embedding)
+        insert_result = elasticsearch_service.main_avatar_insert(request_param.saas_flag, request_param.object_id,
+                                                                 insert_query)
+        logger.info(f"Insert main face {request_param.object_id} to Elasticsearch. {insert_result}")
+        result["objectId"] = request_param.object_id
+        result['msg'] = "Insert successful"
+        result['qualityScore'] = str(float(face_score))
         return jsonify(result)
 
-    index_name = elasticsearch_service.get_main_avatar_index(saas_flag)
-    # 检索主人像， 看是否存在相同的主头像
-    search_main_face_res = elasticsearch_service.search_main_face_image(face_model, index_name, avatar_image,
-                                                                        enhance=False,
-                                                                        score=float(score),
-                                                                        start=0, size=10, embedding_arr=[])
-    object_id = request.form.get('objectId')
-    hdfs_path = request.form.get('hdfsPath')
-
-    logger.info('主头像: ' + str(search_main_face_res))
-    if len(search_main_face_res) > 0:
+    except Exception as e:
+        traceback.print_exc()
         result["code"] = -1
-        result["msg"] = "主头像已存在"
-        logger.info(f"主头像已存在 {object_id}, HDFS_PATH: {hdfs_path}")
+        result["msg"] = str(e)
         return jsonify(result)
-
-    # Get embedding
-    avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
-    face_score = face_model.tface.forward(avatar_align_face[0])
-    embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=False,
-                                                                confidence=0.99)
-    embedding = core_service.squeeze_faces(embedding)[0]
-
-    # Prepare data for Elasticsearch
-    body = {
-        "id": object_id,
-        "object_id": object_id,
-        "embedding": embedding,
-        "hdfs_path": hdfs_path,
-        "quality_score": face_score,
-        "recognition_state": "identification"
-    }
-
-    # Insert into Elasticsearch
-    res = es_client.index(index=index_name, id=object_id, body=body)
-    logger.info(f"Insert main face {object_id} to Elasticsearch. {res}")
-
-    result["objectId"] = object_id
-    result['msg'] = "Insert successful"
-    result['qualityScore'] = str(float(face_score))
-    return jsonify(result)
 
 
 """
@@ -877,7 +804,6 @@ def content_video_predict():
     filter_site = request.form.get('filter_site')
     topic_arr = request.form.get('topic_arr')
     saas_flag = request.form.get('office_code')
-
 
     query = {
         "bool": {

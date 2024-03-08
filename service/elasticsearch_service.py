@@ -530,3 +530,42 @@ def get_image_face_index(saas_flag):
     else:
         logger.info(f"No saas, Get image_faces_v1_index: {image_faces_v1_index}")
         return image_faces_v1_index
+
+
+def main_avatar_search(saas_flag, query):
+    """
+    This function is used to search for the main avatar in the Elasticsearch index.
+
+    Parameters:
+    saas_flag (str): A flag indicating the Software as a Service (SaaS) context. This is used to determine the index name.
+    query (dict): The Elasticsearch query to be executed.
+
+    Returns:
+    dict: The search results from Elasticsearch.
+
+    Raises:
+    ValueError: If the Elasticsearch index does not exist.
+    """
+    index_name = get_main_avatar_index(saas_flag)
+    if not es_client.indices.exists(index=index_name):
+        raise ValueError(f"Index {index_name} does not exist")
+    return es_client.search(index=index_name, body=query)
+
+def main_avatar_insert(saas_flag, id, body):
+    """
+    This function is used to insert a main avatar into the Elasticsearch index.
+
+    Parameters:
+    saas_flag (str): A flag indicating the Software as a Service (SaaS) context. This is used to determine the index name.
+    body (dict): The document to be inserted into the Elasticsearch index.
+
+    Returns:
+    dict: The response from Elasticsearch.
+
+    Raises:
+    ValueError: If the Elasticsearch index does not exist.
+    """
+    index_name = get_main_avatar_index(saas_flag)
+    if not es_client.indices.exists(index=index_name):
+        raise ValueError(f"Index {index_name} does not exist")
+    return es_client.index(index=index_name, id=id,  body=body)
