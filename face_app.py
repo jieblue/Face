@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify, Response
 
 from entity.file_entity import VideoFile, ImageFile
 from entity.interface_request_entity import MainFaceRequestEntity, MainFaceInsertEntity, FacePredictEntity, \
-    MainFacePredictEntity
+    MainFacePredictEntity, ContentFacePredictEntity
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
 from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service, \
@@ -544,22 +544,21 @@ video_predict_dir = '/tmp/video_predict_tmp'
 
 @app.route('/api/ability/content_face_predict', methods=['POST'])
 def content_face_predict():
-    result = {"code": 0, "msg": "success", 'total': 0}
-
     result = {
         "code": 0,
         "msg": "success",
+        'total': 0
     }
     try:
         # 接收输入参数并且执行验证
-        request_param = MainFacePredictEntity(request)
+        request_param = ContentFacePredictEntity(request)
         request_param.validate()
         # 转换成ESL查询
         image = cv_imread(request_param.file)
         embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
         query = request_param.to_esl_query(embedding)
-        original_es_result = elasticsearch_service.main_avatar_search(request_param.saas_flag, query)
-        total, construct_result = elasticsearch_result_converter.main_avatar_result_converter(original_es_result)
+        original_es_result = elasticsearch_service.image_faces_search(request_param.saas_flag, query)
+        total, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
         result['res'] = construct_result
         result['total'] = total
         return jsonify(result)
@@ -568,193 +567,6 @@ def content_face_predict():
         result["code"] = -1
         result["msg"] = str(e)
         return jsonify(result)
-
-
-    file = request.files.get('file')  # Assuming the file input field is named 'file'
-    score = request.form.get('score', 0.6)
-    page_num = request.form.get('pageNum', 1)
-    page_size = request.form.get('pageSize', 10)
-    public_type = request.form.get('public_type')
-    saas_flag = request.form.get('office_code')
-
-    query = {
-        "bool": {
-            "must": [
-                {
-                    "match_all": {}
-                }
-            ],
-            "must_not": [
-                {
-                    "match_phrase": {
-                        "del_flag": "1"
-                    }
-                }
-            ],
-        }
-    }
-
-    # 存在none值的情况的请求值
-    must_condition_list = []
-    # begin_time = request.form.get('beginTime')
-    # end_time = request.form.get('endTime')
-    # if begin_time is None or begin_time == "":
-    #     now = datetime.now()
-    #     # Get the time three months ago
-    #     three_months_ago = now - relativedelta(months=3)
-    #     # Format the time strings
-    #     end_time = now.strftime('%Y-%m-%d %H:%M:%S')
-    #     begin_time = three_months_ago.strftime('%Y-%m-%d %H:%M:%S')
-    #     logger.info(f"Current time: {begin_time}")
-    #     logger.info(f"Three months ago: {end_time}")
-    #
-    # must_condition_list.append({
-    #     "range": {
-    #         "created_at": {
-    #             "gte": begin_time,
-    #             "lte": end_time
-    #         }
-    #     }
-    # })
-    library_type = request.form.get('libraryType')
-    category_id = request.form.get('category_id')
-    column_id = request.form.get('column_id')
-    create_user_id = request.form.get('create_user_id')
-    site_id = request.form.get('site_id')
-
-    if library_type is not None and library_type != "":
-
-        if library_type == "video":
-            must_condition_list.append({
-                "match_phrase": {
-                    "tag": "video"
-                }
-            })
-
-        if library_type == "public":
-            must_condition_list.append({
-                "match_phrase": {
-                    "from_source": "public"
-                }
-            })
-
-            if public_type is not None and public_type != "":
-                must_condition_list.append({
-                    "match_phrase": {
-                        "public_type": public_type
-                    }
-                })
-        elif library_type == "article":
-            must_condition_list.append({
-                "match_phrase": {
-                    "from_source": "article"
-                }
-            })
-
-        if category_id is not None and category_id != "":
-            category_id_arr = category_id.split(",")
-            must_condition_list.append({
-                "terms": {
-                    library_type + "_category_id": category_id_arr
-                }
-            })
-
-        if column_id is not None and column_id != "":
-            column_id_arr = column_id.split(",")
-            must_condition_list.append({
-                "terms": {
-                    library_type + "_column_id": column_id_arr
-                }
-            })
-
-        if create_user_id is not None and create_user_id != "":
-            create_user_id_arr = create_user_id.split(",")
-            must_condition_list.append({
-                "terms": {
-                    library_type + "_create_user_id": create_user_id_arr
-                }
-            })
-
-        if site_id is not None and site_id != "":
-            site_id_arr = site_id.split(",")
-            must_condition_list.append({
-                "terms": {
-                    library_type + "_site_id": site_id_arr
-                }
-            })
-
-    if len(must_condition_list) > 0:
-        query['bool']['must'] = must_condition_list
-
-    offset = (int(page_num) - 1) * int(page_size)
-
-    if file:
-        uuid_filename = generator.generate_unique_value()
-        dir_path = video_predict_dir + uuid_filename + ".jpg"
-        file.save(dir_path)  # Replace with the path where you want to save the file
-        image = cv_imread(dir_path)
-
-        start = time.time()
-        search_vectors = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)
-
-        min_score = 1000 + 0.5
-
-        body = {
-            "min_score": min_score,
-            "from": offset,
-            "size": page_size,
-            "query": {
-                "script_score": {
-                    "query": query,
-                    "script": {
-                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1000",
-                        "params": {
-                            "query_vector": search_vectors[0]
-                        }
-                    }
-                }
-            },
-            "collapse": {
-                "field": "earliest_video_id.raw"
-            }
-        }
-        search_result = []
-        index_name = elasticsearch_service.get_image_face_index(saas_flag)
-        # Determine the index_name whether exist
-        if not es_client.indices.exists(index=index_name):
-            result["code"] = -1
-            result["msg"] = f"Index {index_name} not exists"
-            return jsonify(result)
-        search_res = es_client.search(index=index_name, body=body)
-        total = search_res['hits']['total']['value']
-        search_res = search_res['hits']['hits']
-        for one in search_res:
-            current_score = one['_score'] - 1000
-            logger.info(f"Search single result: {one} and score is {current_score}")
-            tmp = {
-                'id': one['_id'],
-                'object_id': one['_source']['object_id'],
-                'hdfs_path': one['_source']['hdfs_path'],
-                'score': current_score,
-                'quality_score': one['_source']['quality_score'],
-                'video_id_arr': one['_source']['video_id_arr'],
-                'earliest_video_id': one['_source']['earliest_video_id'],
-                'file_name': one['_source']['file_name']
-            }
-
-            search_result.append(tmp)
-
-        logger.info('搜索耗时: ' + str(time.time() - start))
-        logger.info(f"搜索结果: {search_result}")
-        result['res'] = [search_result]
-        result['total'] = total
-        video_service_v3.delete_video_file(dir_path)
-        logger.info(f"content_face_predict 删除临时文件: {dir_path}")
-    else:
-        result["code"] = -1
-        result["msg"] = "File uploaded Failure!"
-
-    return jsonify(result)
 
 
 @app.route('/api/ability/content_video_predict', methods=['POST'])
