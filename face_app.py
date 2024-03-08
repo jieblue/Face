@@ -578,7 +578,7 @@ def content_video_predict():
         request_param = ContentVideoPredictEntity(request)
         request_param.validate()
         # 转换成ESL查询
-        image = cv_imread(request_param.file)
+        image = Image.open(request_param.file).convert("RGB")
         embedding = visual_algorithm_service.get_frame_embedding(image)
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.video_frame_search(request_param.saas_flag, query)
@@ -607,7 +607,7 @@ def video_predict():
         request_param = VideoPredictEntity(request)
         request_param.validate()
         # 转换成ESL查询
-        image = cv_imread(request_param.file)
+        image = Image.open(request_param.file).convert("RGB")
         embedding = visual_algorithm_service.get_frame_embedding(image)
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.video_frame_search(request_param.saas_flag, query)

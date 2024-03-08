@@ -65,8 +65,10 @@ def content_video_predict_result_converter(original_result):
             'score': current_score,
             'earliest_video_id': earliest_video_id,
             'tag': one['_source']['tag'],
-            'from_source': one['_source']['from_source']
         }
+
+        if "from_source" in one['_source']:
+            tmp['from_source'] = one['_source']['from_source']
 
         if "public_topic_arr" in one['_source']:
             tmp['public_topic_arr'] = one['_source']['public_topic_arr']
@@ -95,8 +97,10 @@ def video_predict_result_converter(original_result):
             'score': current_score,
             'earliest_video_id': earliest_video_id,
             'tag': one['_source']['tag'],
-            'from_source': one['_source']['from_source']
         }
+
+        if "from_source" in one['_source']:
+            tmp['from_source'] = one['_source']['from_source']
 
         if "public_topic_arr" in one['_source']:
             tmp['public_topic_arr'] = one['_source']['public_topic_arr']

@@ -85,17 +85,15 @@ class VideoModel:
     def get_frame_embedding(self, frame_image):
         # 提取每个帧的特征向量
         # 打开图像并进行预处理
-        if isinstance(frame_image, str):
-            image = Image.open(frame_image).convert("RGB")
-            return self.get_frame_embedding_byte(image)
+        if isinstance(frame_image, Image.Image):
+            return self.get_frame_embedding_byte(frame_image)
         else:
             return self.get_frame_embedding_byte(frame_image.to_image())
 
     def get_frame_embedding_256(self, frame_image):
         # 提取每个帧的特征向量
         # 打开图像并进行预处理
-        if isinstance(frame_image, str):
-            image = Image.open(frame_image).convert("RGB")
-            return self.get_frame_embedding_byte_256(image)
+        if isinstance(frame_image, Image.Image):
+            return self.get_frame_embedding_byte_256(frame_image)
         else:
             return self.get_frame_embedding_byte_256(frame_image.to_image())
