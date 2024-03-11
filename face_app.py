@@ -529,7 +529,7 @@ def main_face_predict():
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.main_avatar_search(request_param.saas_flag, query)
         total, construct_result = elasticsearch_result_converter.main_avatar_result_converter(original_es_result)
-        result['res'] = construct_result
+        result['res'] = [construct_result]
         result['total'] = total
         return jsonify(result)
     except Exception as e:
