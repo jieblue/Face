@@ -502,9 +502,12 @@ def face_predict():
             request_param.embedding_arr = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
         query = request_param.to_esl_query()
         original_es_result = elasticsearch_service.image_faces_search(request_param.saas_flag, query)
-        total, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
+        _, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
+        total_query = request_param.to_total_query()
+        total_result = elasticsearch_service.image_faces_search(request_param.saas_flag, total_query)
+        actual_total = elasticsearch_result_converter.total_result_converter(total_result)
         result['res'] = construct_result
-        result['total'] = total
+        result['total'] = actual_total
         return jsonify(result)
     except Exception as e:
         traceback.print_exc()

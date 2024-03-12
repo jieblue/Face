@@ -129,6 +129,7 @@ class FacePredictEntity:
         self.saas_flag = request.form.get('office_code')
         self.embedding_arr = json.loads(request.form.get('embedding', '[]'))
         self.offset = (int(self.page_num) - 1) * int(self.page_size)
+        self.total_query = ""
 
     def to_dict(self):
         return {
@@ -173,8 +174,7 @@ class FacePredictEntity:
         }]
         query = {
             "min_score": float(self.score) + 1000,
-            "from": self.offset,
-            "size": self.page_size,
+            "size": 0,
             "query": {
                 "script_score": {
                     "query": {
@@ -188,12 +188,26 @@ class FacePredictEntity:
                         "params": {"query_vector": self.embedding_arr}
                     }
                 }
-            },
-            "collapse": {"field": "earliest_video_id.raw"}
+            }
         }
+
+        self.total_query = query.copy()
+        query["size"] = self.page_size
+        query["from"] = self.offset
+        query["collapse"] = {"field": "earliest_video_id.raw"}
 
         logger.info(f"Search face image with date query: {query}")
         return query
+
+    def to_total_query(self):
+        self.total_query["aggs"] = {
+            "total_num": {
+                "cardinality": {
+                    "field": "earliest_video_id.raw"}
+
+            }
+        }
+        return self.total_query
 
 
 class MainFacePredictEntity:
