@@ -666,5 +666,25 @@ def normalized_euclidean_distance(l2, dim=512):
     return 1 / (1 + l2 / dim_sqrt)
 
 
+@app.route('/api/ability/calculate_similarity', methods=['POST'])
+def calculate_similarity():
+    result = {
+        "code": 0,
+        "msg": "success",
+    }
+    try:
+        json_data = request.get_json()
+        embedding1 = json_data["embedding1"]
+        embedding2 = json_data["embedding2"]
+        similarity = visual_algorithm_service.cul_similarity(embedding1, embedding2)
+        result['similarity'] = similarity
+        return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
+        result["code"] = -1
+        result["msg"] = str(e)
+        return jsonify(result)
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5010)
