@@ -588,10 +588,13 @@ def content_video_predict():
         embedding = visual_algorithm_service.get_frame_embedding(image)
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.video_frame_search(request_param.saas_flag, query)
-        total, construct_result = elasticsearch_result_converter.content_video_predict_result_converter(
+        _, construct_result = elasticsearch_result_converter.content_video_predict_result_converter(
             original_es_result)
+        total_query = request_param.to_total_query()
+        total_result = elasticsearch_service.video_frame_search(request_param.saas_flag, total_query)
+        actual_total = elasticsearch_result_converter.total_result_converter(total_result)
         result['res'] = construct_result
-        result['total'] = total
+        result['total'] = actual_total
         return jsonify(result)
     except Exception as e:
         traceback.print_exc()
@@ -617,10 +620,13 @@ def video_predict():
         embedding = visual_algorithm_service.get_frame_embedding(image)
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.video_frame_search(request_param.saas_flag, query)
-        total, construct_result = elasticsearch_result_converter.video_predict_result_converter(
+        _, construct_result = elasticsearch_result_converter.video_predict_result_converter(
             original_es_result)
+        total_query = request_param.to_total_query()
+        total_result = elasticsearch_service.video_frame_search(request_param.saas_flag, total_query)
+        actual_total = elasticsearch_result_converter.total_result_converter(total_result)
         result['res'] = construct_result
-        result['total'] = total
+        result['total'] = actual_total
         return jsonify(result)
     except Exception as e:
         traceback.print_exc()
