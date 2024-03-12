@@ -276,6 +276,7 @@ class ContentFacePredictEntity:
         self.column_id = request.form.get('column_id')
         self.create_user_id = request.form.get('create_user_id')
         self.site_id = request.form.get('site_id')
+        self.total_query = ""
 
     def to_dict(self):
         return {
@@ -411,8 +412,7 @@ class ContentFacePredictEntity:
 
         body = {
             "min_score": min_score,
-            "from": self.offset,
-            "size": self.page_size,
+            "size": 0,
             "query": {
                 "script_score": {
                     "query": query,
@@ -423,12 +423,23 @@ class ContentFacePredictEntity:
                         }
                     }
                 }
-            },
-            "collapse": {
-                "field": "earliest_video_id.raw"
             }
         }
+        self.total_query = body.copy()
+        body["size"] = self.page_size
+        body["from"] = self.offset
+        body["collapse"] = {"field": "earliest_video_id.raw"}
         return body
+
+    def to_total_query(self):
+        self.total_query["aggs"] = {
+            "total_num": {
+                "cardinality": {
+                    "field": "earliest_video_id.raw"}
+
+            }
+        }
+        return self.total_query
 
 
 class ContentVideoPredictEntity:
