@@ -529,7 +529,7 @@ def main_face_predict():
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.main_avatar_search(request_param.saas_flag, query)
         total, construct_result = elasticsearch_result_converter.main_avatar_result_converter(original_es_result)
-        result['res'] = construct_result
+        result['res'] = [construct_result]
         result['total'] = total
         return jsonify(result)
     except Exception as e:
@@ -664,6 +664,26 @@ def delete_relevant_data():
 def normalized_euclidean_distance(l2, dim=512):
     dim_sqrt = math.sqrt(dim)
     return 1 / (1 + l2 / dim_sqrt)
+
+
+@app.route('/api/ability/calculate_similarity', methods=['POST'])
+def calculate_similarity():
+    result = {
+        "code": 0,
+        "msg": "success",
+    }
+    try:
+        json_data = request.get_json()
+        embedding1 = json_data["embedding1"]
+        embedding2 = json_data["embedding2"]
+        similarity = visual_algorithm_service.cul_similarity(embedding1, embedding2)
+        result['similarity'] = similarity
+        return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
+        result["code"] = -1
+        result["msg"] = str(e)
+        return jsonify(result)
 
 
 if __name__ == '__main__':

@@ -677,15 +677,8 @@ class VideoPredictEntity:
         }
 
         must_condition_list = [{
-            "match_phrase": {
-                "tag": "video"
-            }
-        }, {
-            "range": {
-                "created_at": {
-                    "gte": self.begin_time,
-                    "lte": self.end_time
-                }
+            "terms": {
+                "tag": ["video", "video-index"]
             }
         }]
 
