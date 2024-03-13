@@ -547,6 +547,7 @@ def main_avatar_search(saas_flag, query):
     ValueError: If the Elasticsearch index does not exist.
     """
     index_name = get_main_avatar_index(saas_flag)
+    logger.info(f"Main avatar search query: {query}")
     if not es_client.indices.exists(index=index_name):
         raise ValueError(f"Index {index_name} does not exist")
     return es_client.search(index=index_name, body=query)

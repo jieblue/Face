@@ -55,7 +55,7 @@ class MainFaceRequestEntity:
         if self.object_id:
             query["query"]["bool"]["must"].append({
                 "term": {
-                    "object_id.keyword": self.object_id
+                    "object_id": self.object_id
                 }
             })
         return query
