@@ -129,6 +129,7 @@ class FacePredictEntity:
         self.saas_flag = request.form.get('office_code')
         self.embedding_arr = json.loads(request.form.get('embedding', '[]'))
         self.offset = (int(self.page_num) - 1) * int(self.page_size)
+        self.total_query = ""
 
     def to_dict(self):
         return {
@@ -173,8 +174,7 @@ class FacePredictEntity:
         }]
         query = {
             "min_score": float(self.score) + 1000,
-            "from": self.offset,
-            "size": self.page_size,
+            "size": 0,
             "query": {
                 "script_score": {
                     "query": {
@@ -188,12 +188,26 @@ class FacePredictEntity:
                         "params": {"query_vector": self.embedding_arr}
                     }
                 }
-            },
-            "collapse": {"field": "earliest_video_id.raw"}
+            }
         }
+
+        self.total_query = query.copy()
+        query["size"] = self.page_size
+        query["from"] = self.offset
+        query["collapse"] = {"field": "earliest_video_id.raw"}
 
         logger.info(f"Search face image with date query: {query}")
         return query
+
+    def to_total_query(self):
+        self.total_query["aggs"] = {
+            "total_num": {
+                "cardinality": {
+                    "field": "earliest_video_id.raw"}
+
+            }
+        }
+        return self.total_query
 
 
 class MainFacePredictEntity:
@@ -262,6 +276,7 @@ class ContentFacePredictEntity:
         self.column_id = request.form.get('column_id')
         self.create_user_id = request.form.get('create_user_id')
         self.site_id = request.form.get('site_id')
+        self.total_query = ""
 
     def to_dict(self):
         return {
@@ -397,8 +412,7 @@ class ContentFacePredictEntity:
 
         body = {
             "min_score": min_score,
-            "from": self.offset,
-            "size": self.page_size,
+            "size": 0,
             "query": {
                 "script_score": {
                     "query": query,
@@ -409,18 +423,29 @@ class ContentFacePredictEntity:
                         }
                     }
                 }
-            },
-            "collapse": {
-                "field": "earliest_video_id.raw"
             }
         }
+        self.total_query = body.copy()
+        body["size"] = self.page_size
+        body["from"] = self.offset
+        body["collapse"] = {"field": "earliest_video_id.raw"}
         return body
+
+    def to_total_query(self):
+        self.total_query["aggs"] = {
+            "total_num": {
+                "cardinality": {
+                    "field": "earliest_video_id.raw"}
+
+            }
+        }
+        return self.total_query
 
 
 class ContentVideoPredictEntity:
     def __init__(self, request):
         self.file = request.files.get('file')
-        self.score = request.form.get("score", 0.6)
+        self.score = request.form.get("score", 0.9)
         self.page_num = request.form.get("pageNum", 1)
         self.page_size = request.form.get("pageSize", 10)
         self.saas_flag = request.form.get('office_code')
@@ -435,6 +460,7 @@ class ContentVideoPredictEntity:
         self.site_id = request.form.get('site_id')
         self.filter_site = request.form.get('filter_site')
         self.topic_arr = request.form.get('topic_arr')
+        self.total_query = ""
 
     def to_dict(self):
         return {
@@ -592,8 +618,7 @@ class ContentVideoPredictEntity:
         min_score = 1000 + float(self.score)
         body = {
             "min_score": min_score,
-            "from": self.offset,
-            "size": self.page_size,
+            "size": 0,
             "query": {
                 "script_score": {
                     "query": query,
@@ -606,25 +631,36 @@ class ContentVideoPredictEntity:
                 }
             },
             "_source": ["key_id", "hdfs_path", "earliest_video_id", "tag", "from_source", "public_topic_arr"],
-            "collapse": {
-                "field": "earliest_video_id.raw"
+        }
+        self.total_query = body.copy()
+        body["size"] = self.page_size
+        body["from"] = self.offset
+        body["collapse"] = {"field": "earliest_video_id.raw"}
+        return body
+
+    def to_total_query(self):
+        self.total_query["aggs"] = {
+            "total_num": {
+                "cardinality": {
+                    "field": "earliest_video_id.raw"}
+
             }
         }
-
-        return body
+        return self.total_query
 
 
 class VideoPredictEntity:
 
     def __init__(self, request):
         self.file = request.files.get('file')
-        self.score = request.form.get("score", 0.6)
+        self.score = request.form.get("score", 0.9)
         self.page_num = request.form.get("pageNum", 1)
         self.page_size = request.form.get("pageSize", 10)
         self.begin_time = request.form.get("beginTime")
         self.end_time = request.form.get("endTime")
         self.saas_flag = request.form.get('office_code')
         self.offset = (int(self.page_num) - 1) * int(self.page_size)
+        self.total_query = ""
 
     def to_dict(self):
         return {
@@ -686,8 +722,8 @@ class VideoPredictEntity:
             query['bool']['must'] = must_condition_list
 
         body = {
-            "from": self.offset,
-            "size": self.page_size,
+            "min_score": float(self.score) + 1000,
+            "size": 0,
             "query": {
                 "script_score": {
                     "query": query,
@@ -698,9 +734,21 @@ class VideoPredictEntity:
                         }
                     }
                 }
-            },
-            "collapse": {
-                "field": "earliest_video_id.raw"
             }
         }
+
+        self.total_query = body.copy()
+        body["size"] = self.page_size
+        body["from"] = self.offset
+        body["collapse"] = {"field": "earliest_video_id.raw"}
         return body
+
+    def to_total_query(self):
+        self.total_query["aggs"] = {
+            "total_num": {
+                "cardinality": {
+                    "field": "earliest_video_id.raw"}
+
+            }
+        }
+        return self.total_query

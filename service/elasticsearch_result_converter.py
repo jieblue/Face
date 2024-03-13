@@ -47,6 +47,11 @@ def face_predict_result_converter(original_result):
         result.append(tmp)
     return total, [result]
 
+def total_result_converter(original_result):
+    logger.info(f"total_result_converter search spend time {original_result['took']} ms")
+    return original_result['aggregations']['total_num']['value']
+
+
 
 def content_video_predict_result_converter(original_result):
     logger.info(f"content_video_predict_result_converter search spend time {original_result['took']} ms")

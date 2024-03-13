@@ -13,7 +13,7 @@ from entity.interface_request_entity import MainFaceRequestEntity, MainFaceInser
 from entity.union_result import UnionResult
 from model.model_video import VideoModel
 from service import core_service, main_avatar_service, video_service_v3, elasticsearch_service, file_service, \
-    visual_algorithm_service, elasticsearch_result_converter
+    visual_algorithm_service, elasticsearch_result_converter, redis_service
 from service.core_service import *
 from service.elasticsearch_service import image_faces_v1_index, es_client, main_avatar_v1_index, video_frames_v1_index
 from utils import log_util
@@ -502,9 +502,21 @@ def face_predict():
             request_param.embedding_arr = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
         query = request_param.to_esl_query()
         original_es_result = elasticsearch_service.image_faces_search(request_param.saas_flag, query)
-        total, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
+        _, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
+        total_query = request_param.to_total_query()
+        redis_key = str(request_param.saas_flag) + str(total_query)
+        actual_total = redis_service.get_value_by_key(redis_key)
+        # 缓存真实数量
+        if actual_total is None:
+            logger.info(f"video_predict redis_key: {request_param.saas_flag} not exists")
+            total_result = elasticsearch_service.image_faces_search(request_param.saas_flag, total_query)
+            actual_total = elasticsearch_result_converter.total_result_converter(total_result)
+            redis_service.set_expire_after_24hours(redis_key, actual_total)
+        else:
+            logger.info(f"video_predict redis_key: {request_param.saas_flag} exists")
+
         result['res'] = construct_result
-        result['total'] = total
+        result['total'] = int(actual_total)
         return jsonify(result)
     except Exception as e:
         traceback.print_exc()
@@ -558,9 +570,22 @@ def content_face_predict():
         embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.image_faces_search(request_param.saas_flag, query)
-        total, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
+        _, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
+        total_query = request_param.to_total_query()
+        redis_key = str(request_param.saas_flag) + str(total_query)
+        actual_total = redis_service.get_value_by_key(redis_key)
+        # 缓存真实数量
+        if actual_total is None:
+            logger.info(f"video_predict redis_key: {request_param.saas_flag} not exists")
+            total_result = elasticsearch_service.image_faces_search(request_param.saas_flag, total_query)
+            actual_total = elasticsearch_result_converter.total_result_converter(total_result)
+            redis_service.set_expire_after_24hours(redis_key, actual_total)
+        else:
+            logger.info(f"video_predict redis_key: {request_param.saas_flag} exists")
+
+
         result['res'] = construct_result
-        result['total'] = total
+        result['total'] = int(actual_total)
         return jsonify(result)
     except Exception as e:
         traceback.print_exc()
@@ -582,10 +607,22 @@ def content_video_predict():
         embedding = visual_algorithm_service.get_frame_embedding(image)
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.video_frame_search(request_param.saas_flag, query)
-        total, construct_result = elasticsearch_result_converter.content_video_predict_result_converter(
+        _, construct_result = elasticsearch_result_converter.content_video_predict_result_converter(
             original_es_result)
+        total_query = request_param.to_total_query()
+        redis_key = str(request_param.saas_flag) + str(total_query)
+        actual_total = redis_service.get_value_by_key(redis_key)
+        # 缓存真实数量
+        if actual_total is None:
+            logger.info(f"content_video_predict redis_key: {request_param.saas_flag} not exists")
+            total_result = elasticsearch_service.video_frame_search(request_param.saas_flag, total_query)
+            actual_total = elasticsearch_result_converter.total_result_converter(total_result)
+            redis_service.set_expire_after_24hours(redis_key, actual_total)
+        else:
+            logger.info(f"content_video_predict redis_key: {request_param.saas_flag} exists")
+
         result['res'] = construct_result
-        result['total'] = total
+        result['total'] = int(actual_total)
         return jsonify(result)
     except Exception as e:
         traceback.print_exc()
@@ -611,10 +648,22 @@ def video_predict():
         embedding = visual_algorithm_service.get_frame_embedding(image)
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.video_frame_search(request_param.saas_flag, query)
-        total, construct_result = elasticsearch_result_converter.video_predict_result_converter(
+        _, construct_result = elasticsearch_result_converter.video_predict_result_converter(
             original_es_result)
+        total_query = request_param.to_total_query()
+        redis_key = str(request_param.saas_flag) + str(total_query)
+        actual_total = redis_service.get_value_by_key(redis_key)
+        # 缓存真实数量
+        if actual_total is None:
+            logger.info(f"video_predict redis_key: {request_param.saas_flag} not exists")
+            total_result = elasticsearch_service.video_frame_search(request_param.saas_flag, total_query)
+            actual_total = elasticsearch_result_converter.total_result_converter(total_result)
+            redis_service.set_expire_after_24hours(redis_key, actual_total)
+        else:
+            logger.info(f"video_predict redis_key: {request_param.saas_flag} exists")
+
         result['res'] = construct_result
-        result['total'] = total
+        result['total'] = int(actual_total)
         return jsonify(result)
     except Exception as e:
         traceback.print_exc()
