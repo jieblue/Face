@@ -113,7 +113,7 @@ def validate_parameter(request):
 def validate_insert_result(original_es_result):
     interior_result = original_es_result['hits']['hits']
     if len(interior_result) > 0:
-        raise ValueError(f"主头像已存在， 编号ID: {interior_result[0]['_source']['object_id']} 识别状态: "
+        raise ValueError(f"主头像已存在:{interior_result[0]['_source']['object_id']}:"
                          f"{interior_result[0]['_source']['recognition_state']}")
 
 

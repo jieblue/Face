@@ -225,6 +225,7 @@ def insert_main_avatar():
         insert_query = request_param.insert_query(insert_embedding)
         insert_result = elasticsearch_service.main_avatar_insert(request_param.saas_flag, request_param.object_id,
                                                                  insert_query)
+        # original_result = elasticsearch_result_converter.main_avatar_result_converter(insert_result)
         logger.info(f"Insert main face {request_param.object_id} to Elasticsearch. {insert_result}")
         result["objectId"] = request_param.object_id
         result['msg'] = "Insert successful"
@@ -233,6 +234,10 @@ def insert_main_avatar():
 
     except Exception as e:
         traceback.print_exc()
+        msg_arr = str(e).split(":")
+        if len(msg_arr) > 2:
+            result["objectId"] = msg_arr[1]
+            result["identification"] = msg_arr[2]
         result["code"] = -1
         result["msg"] = str(e)
         return jsonify(result)
