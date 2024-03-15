@@ -257,6 +257,8 @@ class MainFacePredictEntity:
                 }
             }
         }
+
+        query["collapse"] = {"field": "object_id.raw"}
         return query
 
 
