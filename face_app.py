@@ -225,6 +225,7 @@ def insert_main_avatar():
         insert_query = request_param.insert_query(insert_embedding)
         insert_result = elasticsearch_service.main_avatar_insert(request_param.saas_flag, request_param.object_id,
                                                                  insert_query)
+        # original_result = elasticsearch_result_converter.main_avatar_result_converter(insert_result)
         logger.info(f"Insert main face {request_param.object_id} to Elasticsearch. {insert_result}")
         result["objectId"] = request_param.object_id
         result['msg'] = "Insert successful"
@@ -233,6 +234,10 @@ def insert_main_avatar():
 
     except Exception as e:
         traceback.print_exc()
+        msg_arr = str(e).split(":")
+        if len(msg_arr) > 2:
+            result["objectId"] = msg_arr[1]
+            result["identification"] = msg_arr[2]
         result["code"] = -1
         result["msg"] = str(e)
         return jsonify(result)
@@ -383,10 +388,12 @@ def update_main_avatar_object():
             "object_id": new_object_id if new_object_id else search_res['_source']['object_id'],
             "embedding": search_res['_source']['embedding'],
             "hdfs_path": search_res['_source']['hdfs_path'],
-            "quality_score": search_res['_source']['quality_score'],
             "recognition_state": recognition_state
         }
     }
+
+    if "quality_score" in search_res['_source']:
+        body["doc"]["quality_score"] = search_res['_source']['quality_score']
 
     # Update in Elasticsearch
     res = es_client.update(index=index_name, id=object_id, body=body)
@@ -537,8 +544,12 @@ def main_face_predict():
         request_param.validate()
         # 转换成ESL查询
         image = cv_imread(request_param.file)
-        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
-        query = request_param.to_esl_query(embedding)
+        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)
+        if len(embedding) == 0:
+            result["code"] = -1
+            result["msg"] = "No face detected."
+            return jsonify(result)
+        query = request_param.to_esl_query(embedding[0])
         original_es_result = elasticsearch_service.main_avatar_search(request_param.saas_flag, query)
         total, construct_result = elasticsearch_result_converter.main_avatar_result_converter(original_es_result)
         result['res'] = [construct_result]
@@ -736,4 +747,4 @@ def calculate_similarity():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5010)
+    app.run(host='0.0.0.0', port=5000, debug=True)

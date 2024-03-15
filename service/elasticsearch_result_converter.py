@@ -15,10 +15,12 @@ def main_avatar_result_converter(original_result):
             'object_id': hit['_source']['object_id'],
             'hdfs_path': hit['_source']['hdfs_path'],
             'score': current_score,
-            'quality_score': str(hit['_source']['quality_score']),
             'recognition_state': hit['_source']['recognition_state'],
             "embedding": hit['_source']['embedding']
         }
+
+        if "quality_score" in hit['_source']:
+            tmp['quality_score'] = hit['_source']['quality_score']
         search_result.append(tmp)
 
     return total, search_result
