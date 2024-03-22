@@ -114,7 +114,7 @@ def validate_insert_result(original_es_result):
     interior_result = original_es_result['hits']['hits']
     if len(interior_result) > 0:
         raise ValueError(f"主头像已存在:{interior_result[0]['_source']['object_id']}:"
-                         f"{interior_result[0]['_source']['recognition_state']}")
-
+                         f"{interior_result[0]['_source']['recognition_state']}："
+                         f"{interior_result[0]['_source']['embedding']}：")
 
 
