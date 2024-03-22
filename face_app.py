@@ -238,6 +238,7 @@ def insert_main_avatar():
         if len(msg_arr) > 2:
             result["objectId"] = msg_arr[1]
             result["identification"] = msg_arr[2]
+            result["embedding"] = msg_arr[4]
         result["code"] = -1
         result["msg"] = str(e)
         return jsonify(result)
@@ -246,7 +247,6 @@ def insert_main_avatar():
 """
 更新主头像到二级索引主人像库
 """
-
 
 @app.route('/api/ability/update_main_avatar', methods=['POST'])
 def update_main_avatar():
