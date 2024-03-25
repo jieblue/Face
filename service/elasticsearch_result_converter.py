@@ -46,13 +46,16 @@ def face_predict_result_converter(original_result):
             'file_name': one['_source']['file_name']
         }
 
+        if "from_source" in one['_source']:
+            tmp['from_source'] = one['_source']['from_source']
+
         result.append(tmp)
     return total, [result]
+
 
 def total_result_converter(original_result):
     logger.info(f"total_result_converter search spend time {original_result['took']} ms")
     return original_result['aggregations']['total_num']['value']
-
 
 
 def content_video_predict_result_converter(original_result):
