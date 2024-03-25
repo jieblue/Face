@@ -151,7 +151,7 @@ def determine_face():
 
         img = cv_imread(dir_path)
 
-        embedding = visual_algorithm_service.turn_to_face_embedding(img, enhance=False, confidence=0.9)
+        embedding = visual_algorithm_service.turn_to_face_embedding(img, enhance=False, confidence=0.9, aligned=True)
         if len(embedding) == 0:
             result["face_found_in_image"] = False
             result['error_message'] = 'No face found'
@@ -211,7 +211,12 @@ def insert_main_avatar():
         request_param = MainFaceInsertEntity(request)
         request_param.validate()
         avatar_image = cv_imread(request_param.file)
-        embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False)[0]
+        embedding_arr = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=True)
+        if len(embedding_arr) == 0:
+            result["code"] = -1
+            result["msg"] = "No face detected."
+            return jsonify(result)
+        embedding = embedding_arr[0]
         # 转换成ESL查询
         exist_query = request_param.determine_face_exist_query(embedding)
         original_es_result = elasticsearch_service.main_avatar_search(request_param.saas_flag, exist_query)
@@ -219,7 +224,7 @@ def insert_main_avatar():
         # Get embedding
         avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
         face_score = face_model.tface.forward(avatar_align_face[0])
-        insert_embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=False,
+        insert_embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=True,
                                                                            confidence=0.99)[0]
 
         insert_query = request_param.insert_query(insert_embedding)
@@ -238,7 +243,7 @@ def insert_main_avatar():
         if len(msg_arr) > 2:
             result["objectId"] = msg_arr[1]
             result["identification"] = msg_arr[2]
-            result["embedding"] = msg_arr[4]
+            result["hdfsPath"] = msg_arr[3]
         result["code"] = -1
         result["msg"] = str(e)
         return jsonify(result)
@@ -247,6 +252,7 @@ def insert_main_avatar():
 """
 更新主头像到二级索引主人像库
 """
+
 
 @app.route('/api/ability/update_main_avatar', methods=['POST'])
 def update_main_avatar():
@@ -321,7 +327,7 @@ def update_main_avatar():
     # Get embedding
     avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
     face_score = face_model.tface.forward(avatar_align_face[0])
-    embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=False,
+    embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=True,
                                                                 confidence=0.99)
     embedding = core_service.squeeze_faces(embedding)[0]
 
@@ -506,7 +512,7 @@ def face_predict():
         # 转换成ESL查询
         if request_param.file is not None:
             image = cv_imread(request_param.file)
-            request_param.embedding_arr = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
+            request_param.embedding_arr = visual_algorithm_service.turn_to_face_embedding(image, enhance=False, aligned=True)[0]
         query = request_param.to_esl_query()
         original_es_result = elasticsearch_service.image_faces_search(request_param.saas_flag, query)
         total, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
@@ -532,6 +538,38 @@ def face_predict():
         return jsonify(result)
 
 
+@app.route('/api/ability/face_predict/actual_total', methods=['POST'])
+def face_predict_total():
+    result = {
+        "code": 0,
+        "msg": "success",
+    }
+    try:
+        # 接收输入参数并且执行验证
+        request_param = FacePredictEntity(request)
+        request_param.validate()
+        request_param.to_esl_query()
+        total_query = request_param.to_total_query()
+        redis_key = str(request_param.saas_flag) + str(total_query)
+        actual_total = redis_service.get_value_by_key(redis_key)
+        # 缓存真实数量
+        if actual_total is None:
+            logger.info(f"video_predict redis_key: {request_param.saas_flag} not exists")
+            total_result = elasticsearch_service.image_faces_search(request_param.saas_flag, total_query)
+            actual_total = elasticsearch_result_converter.total_result_converter(total_result)
+            redis_service.set_expire_after_24hours(redis_key, actual_total)
+        else:
+            logger.info(f"video_predict redis_key: {request_param.saas_flag} exists")
+        logger.info(f"face_predict/actual_total actual total {actual_total}")
+        result['total'] = int(actual_total)
+        return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
+        result["code"] = -1
+        result["msg"] = str(e)
+        return jsonify(result)
+
+
 @app.route('/api/ability/main_face_predict', methods=['POST'])
 def main_face_predict():
     result = {
@@ -544,7 +582,7 @@ def main_face_predict():
         request_param.validate()
         # 转换成ESL查询
         image = cv_imread(request_param.file)
-        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)
+        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False, aligned=True)
         if len(embedding) == 0:
             result["code"] = -1
             result["msg"] = "No face detected."
@@ -578,7 +616,7 @@ def content_face_predict():
         request_param.validate()
         # 转换成ESL查询
         image = cv_imread(request_param.file)
-        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
+        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False, aligned=True)[0]
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.image_faces_search(request_param.saas_flag, query)
         total, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
@@ -603,6 +641,43 @@ def content_face_predict():
         result["msg"] = str(e)
         return jsonify(result)
 
+
+@app.route('/api/ability/content_face_predict/actual_total', methods=['POST'])
+def content_face_predict_total():
+    result = {
+        "code": 0,
+        "msg": "success",
+        'total': 0
+    }
+    try:
+        # 接收输入参数并且执行验证
+        request_param = ContentFacePredictEntity(request)
+        request_param.validate()
+        request_param.to_esl_query()
+        # 转换成ESL查询
+        image = cv_imread(request_param.file)
+        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False, aligned=True)[0]
+        request_param.to_esl_query(embedding)
+        total_query = request_param.to_total_query()
+        redis_key = str(request_param.saas_flag) + str(total_query)
+        actual_total = redis_service.get_value_by_key(redis_key)
+        # 缓存真实数量
+        if actual_total is None:
+            logger.info(f"video_predict redis_key: {request_param.saas_flag} not exists")
+            total_result = elasticsearch_service.image_faces_search(request_param.saas_flag, total_query)
+            actual_total = elasticsearch_result_converter.total_result_converter(total_result)
+            redis_service.set_expire_after_24hours(redis_key, actual_total)
+        else:
+            logger.info(f"video_predict redis_key: {request_param.saas_flag} exists")
+
+        logger.info(f"content_face_predict/actual_total actual total {actual_total}")
+        result['total'] = int(actual_total)
+        return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
+        result["code"] = -1
+        result["msg"] = str(e)
+        return jsonify(result)
 
 @app.route('/api/ability/content_video_predict', methods=['POST'])
 def content_video_predict():
@@ -641,6 +716,38 @@ def content_video_predict():
         return jsonify(result)
 
 
+@app.route('/api/ability/content_video_predict/actual_total', methods=['POST'])
+def content_video_predict_total():
+    result = {"code": 0, "msg": "success", 'total': 0}
+
+    try:
+        # 接收输入参数并且执行验证
+        request_param = ContentVideoPredictEntity(request)
+        request_param.validate()
+        # 转换成ESL查询
+        image = Image.open(request_param.file).convert("RGB")
+        embedding = visual_algorithm_service.get_frame_embedding(image)
+        request_param.to_esl_query(embedding)
+        total_query = request_param.to_total_query()
+        redis_key = str(request_param.saas_flag) + str(total_query)
+        actual_total = redis_service.get_value_by_key(redis_key)
+        # 缓存真实数量
+        if actual_total is None:
+            logger.info(f"content_video_predict redis_key: {request_param.saas_flag} not exists")
+            total_result = elasticsearch_service.video_frame_search(request_param.saas_flag, total_query)
+            actual_total = elasticsearch_result_converter.total_result_converter(total_result)
+            redis_service.set_expire_after_24hours(redis_key, actual_total)
+        else:
+            logger.info(f"content_video_predict redis_key: {request_param.saas_flag} exists")
+
+        result['total'] = int(actual_total)
+        return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
+        result["code"] = -1
+        result["msg"] = str(e)
+        return jsonify(result)
+
 @app.route('/api/ability/video_predict', methods=['POST'])
 def video_predict():
     result = {
@@ -674,6 +781,46 @@ def video_predict():
 
         result['res'] = construct_result
         result['total'] = int(total)
+        return jsonify(result)
+    except Exception as e:
+        traceback.print_exc()
+        result["code"] = -1
+        result["msg"] = str(e)
+        return jsonify(result)
+
+
+@app.route('/api/ability/video_predict/actual_total', methods=['POST'])
+def video_predict_total():
+    result = {
+        "code": 0,
+        "msg": "success",
+        'total': 0
+    }
+
+    try:
+        # 接收输入参数并且执行验证
+        request_param = VideoPredictEntity(request)
+        request_param.validate()
+        # 转换成ESL查询
+        # image = Image.open(request_param.file).convert("RGB")
+        # embedding = visual_algorithm_service.get_frame_embedding(image)
+        # query = request_param.to_esl_query(embedding)
+        # original_es_result = elasticsearch_service.video_frame_search(request_param.saas_flag, query)
+        # total, construct_result = elasticsearch_result_converter.video_predict_result_converter(
+        #     original_es_result)
+        # total_query = request_param.to_total_query()
+        # redis_key = str(request_param.saas_flag) + str(total_query)
+        # actual_total = redis_service.get_value_by_key(redis_key)
+        # # 缓存真实数量
+        # if actual_total is None:
+        #     logger.info(f"video_predict redis_key: {request_param.saas_flag} not exists")
+        #     total_result = elasticsearch_service.video_frame_search(request_param.saas_flag, total_query)
+        #     actual_total = elasticsearch_result_converter.total_result_converter(total_result)
+        #     redis_service.set_expire_after_24hours(redis_key, actual_total)
+        # else:
+        #     logger.info(f"video_predict redis_key: {request_param.saas_flag} exists")
+
+        result['total'] = int(1000)
         return jsonify(result)
     except Exception as e:
         traceback.print_exc()
