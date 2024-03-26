@@ -718,7 +718,15 @@ class VideoPredictEntity:
             "terms": {
                 "tag": ["video", "video-index"]
             }
-        }]
+        }, {
+            "range": {
+                "created_at.keyword": {
+                    "gte": self.begin_time,
+                    "lte": self.end_time
+                }
+            }
+        }
+        ]
 
         if len(must_condition_list) > 0:
             query['bool']['must'] = must_condition_list
