@@ -166,7 +166,7 @@ class FacePredictEntity:
         similarity_search = "cosineSimilarity(params.query_vector, 'embedding') + 1000"
         must_condition = [{
             "range": {
-                "created_at": {
+                "created_at.keyword": {
                     "gte": self.begin_time,
                     "lte": self.end_time
                 }

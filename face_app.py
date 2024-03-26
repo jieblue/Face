@@ -151,7 +151,7 @@ def determine_face():
 
         img = cv_imread(dir_path)
 
-        embedding = visual_algorithm_service.turn_to_face_embedding(img, enhance=False, confidence=0.9, aligned=True)
+        embedding = visual_algorithm_service.turn_to_face_embedding(img, enhance=False, confidence=0.9)
         if len(embedding) == 0:
             result["face_found_in_image"] = False
             result['error_message'] = 'No face found'
@@ -224,7 +224,7 @@ def insert_main_avatar():
         # Get embedding
         avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
         face_score = face_model.tface.forward(avatar_align_face[0])
-        insert_embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=True,
+        insert_embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False,
                                                                            confidence=0.99)[0]
 
         insert_query = request_param.insert_query(insert_embedding)
@@ -327,7 +327,7 @@ def update_main_avatar():
     # Get embedding
     avatar_align_face = face_model.extract_face(avatar_image, enhance=False, confidence=0.99)
     face_score = face_model.tface.forward(avatar_align_face[0])
-    embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False, aligned=True,
+    embedding = visual_algorithm_service.turn_to_face_embedding(avatar_image, enhance=False,
                                                                 confidence=0.99)
     embedding = core_service.squeeze_faces(embedding)[0]
 
@@ -512,7 +512,12 @@ def face_predict():
         # 转换成ESL查询
         if request_param.file is not None:
             image = cv_imread(request_param.file)
-            request_param.embedding_arr = visual_algorithm_service.turn_to_face_embedding(image, enhance=False, aligned=True)[0]
+            embeddings = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)
+            if len(embeddings) == 0:
+                result["code"] = -1
+                result["msg"] = "No face detected."
+                return jsonify(result)
+            request_param.embedding_arr = embeddings[0]
         query = request_param.to_esl_query()
         original_es_result = elasticsearch_service.image_faces_search(request_param.saas_flag, query)
         total, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
@@ -582,7 +587,7 @@ def main_face_predict():
         request_param.validate()
         # 转换成ESL查询
         image = cv_imread(request_param.file)
-        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False, aligned=True)
+        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)
         if len(embedding) == 0:
             result["code"] = -1
             result["msg"] = "No face detected."
@@ -616,7 +621,7 @@ def content_face_predict():
         request_param.validate()
         # 转换成ESL查询
         image = cv_imread(request_param.file)
-        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False, aligned=True)[0]
+        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
         query = request_param.to_esl_query(embedding)
         original_es_result = elasticsearch_service.image_faces_search(request_param.saas_flag, query)
         total, construct_result = elasticsearch_result_converter.face_predict_result_converter(original_es_result)
@@ -656,7 +661,7 @@ def content_face_predict_total():
         request_param.to_esl_query()
         # 转换成ESL查询
         image = cv_imread(request_param.file)
-        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False, aligned=True)[0]
+        embedding = visual_algorithm_service.turn_to_face_embedding(image, enhance=False)[0]
         request_param.to_esl_query(embedding)
         total_query = request_param.to_total_query()
         redis_key = str(request_param.saas_flag) + str(total_query)
