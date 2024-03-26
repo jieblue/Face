@@ -52,6 +52,14 @@ def down_image(img):
     img = cv2.resize(img, (new_width, new_hight) )
     return img
 
+#判断图片是否112x112分辨率
+def judge_img112(img):
+    # input image shape (H, W, C)
+    # if H=W=112 return True else False
+    height, width = img.shape[:2]
+    if height==width and height==112:
+        return True
+    return False
 
 # 写入压缩图片
 def write_compression_img(save_path, img, bit_rate=50, size=None):
